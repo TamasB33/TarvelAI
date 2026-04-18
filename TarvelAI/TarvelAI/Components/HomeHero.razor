@@ -1,0 +1,92 @@
+﻿<div class="hero-frame">
+    <MudImage Src="/images/traveler.jpg"
+              Alt="Travel Destination"
+              Class="hero-image" 
+              />
+    
+    <div class="hero-image-overlay"></div>
+
+    <MudOverlay Visible="true" Absolute="true" DarkBackground="false" Class="hero-overlay">
+        <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="hero-text hero-content-animate">
+            <MudText Typo="Typo.h2" Align="Align.Center" Style="font-weight: 700; color: #FFFFFF; text-shadow: 0 2px 10px rgba(0,0,0,0.4);">
+                Your AI Co-Pilot for
+            </MudText>
+            <MudText Typo="Typo.h2" Align="Align.Center" Style="font-weight: 700; color: #FFFFFF; text-shadow: 0 2px 10px rgba(0,0,0,0.4);">
+                Every Journey.
+            </MudText>
+            <MudButton Variant = "Variant.Filled" Color="Color.Primary" Size="Size.Large">Start your journey here</MudButton>
+        </MudStack>
+        
+    </MudOverlay>
+
+    @* <div class="hero-blur-bottom"></div> *@
+</div>
+
+<style>
+    .hero-frame {
+        width: 100%;
+        height: 75vh;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .hero-frame .hero-image {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center center;
+        z-index: -1;
+    }
+
+    .hero-overlay {
+        z-index: 1 !important;
+    }
+
+    .hero-text {
+        height: 100%;
+    }
+
+    .hero-content-animate {
+        animation: dropIn 1.2s ease-out forwards;
+        opacity: 0;
+        transform: translateY(-50px);
+    }
+
+    @@keyframes dropIn {
+        0% {
+            opacity: 0;
+            transform: translateY(-50px);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .hero-image-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.4);
+        z-index: 0;
+    }
+
+    .hero-blur-bottom {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 30%;
+        background: linear-gradient(to bottom, transparent, rgba(248, 250, 252, 0.7));
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        mask-image: linear-gradient(to bottom, transparent, black);
+        -webkit-mask-image: linear-gradient(to bottom, transparent, black);
+        z-index: 1;
+    }
+</style>
