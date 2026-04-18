@@ -1,0 +1,59 @@
+@rendermode InteractiveAuto
+@inject NavigationManager Navigation
+
+<MudAppBar Elevation="0" Color="Color.Surface" Style="border-bottom: 1px solid #e0e0e0;">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="d-flex align-center py-2">
+        <MudText Typo="Typo.h5" Style="font-weight: 600; color: #00539C; cursor: pointer;" Href="/">
+            TravelAI
+        </MudText>
+
+        <MudSpacer />
+
+        <MudStack Row Spacing="6" Class="mx-6">
+            <MudLink Href="/" Underline="Underline.None" 
+                     Style="@GetLinkStyle("/")" 
+                     Class="nav-link">
+                Explore
+            </MudLink>
+            <MudLink Href="/ai-planner" Underline="Underline.None" 
+                     Style="@GetLinkStyle("/ai-planner")" 
+                     Class="nav-link">
+                AI Planner
+            </MudLink>
+            <MudLink Href="/my-trips" Underline="Underline.None" 
+                     Style="@GetLinkStyle("/my-trips")" 
+                     Class="nav-link">
+                My Trips
+            </MudLink>
+            <MudLink Href="/support" Underline="Underline.None" 
+                     Style="@GetLinkStyle("/support")" 
+                     Class="nav-link">
+                Support
+            </MudLink>
+        </MudStack>
+
+        <MudButton Variant="Variant.Filled" 
+                   Color="Color.Primary" 
+                   Href="/get-started"
+                   Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 8px 24px;">
+            Get Started
+        </MudButton>
+    </MudContainer>
+</MudAppBar>
+
+@code {
+    private string GetLinkStyle(string href)
+    {
+        var isActive = Navigation.Uri.EndsWith(href) || (href == "/" && Navigation.Uri.EndsWith(Navigation.BaseUri.TrimEnd('/')));
+        var color = isActive ? "#00539C" : "#757575";
+        var fontWeight = isActive ? "600" : "500";
+        var borderBottom = isActive ? "border-bottom: 2px solid #00539C;" : "";
+
+        return $"color: {color}; font-weight: {fontWeight}; font-size: 15px; {borderBottom} padding-bottom: 2px; transition: color 0.3s;";
+    }
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += (s, e) => StateHasChanged();
+    }
+}

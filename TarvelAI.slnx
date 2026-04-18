@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TarvelAI/TarvelAI.Client/TarvelAI.Client.csproj" />
+  <Project Path="TarvelAI/TarvelAI/TarvelAI.csproj" />
+</Solution>
