@@ -1,0 +1,46 @@
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-12">
+    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #1a2b4a; font-style: italic;" Class="mb-6">
+        Travelers in the Loop
+    </MudText>
+
+    <MudGrid Spacing="4">
+        @foreach (var t in TestimonialData)
+        {
+            <MudItem xs="12" sm="4">
+                <MudCard Elevation="2" Style="border-radius: 16px; height: 100%;">
+                    <MudCardContent>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="mb-4">
+                            <MudAvatar Size="Size.Medium">
+                                <MudImage Src="@t.AvatarUrl" Alt="@t.Name" />
+                            </MudAvatar>
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight: 700; color: #1a2b4a;">@t.Name</MudText>
+                                <MudText Typo="Typo.caption" Style="color: #5a6a7a;">@t.Role</MudText>
+                            </MudStack>
+                        </MudStack>
+                        <MudText Typo="Typo.body2" Style="color: #4a5568; font-style: italic;">
+                            "@t.Quote"
+                        </MudText>
+                    </MudCardContent>
+                </MudCard>
+            </MudItem>
+        }
+    </MudGrid>
+</MudContainer>
+
+@code {
+    private record Testimonial(string Name, string Role, string Quote, string AvatarUrl);
+
+    private static readonly Testimonial[] TestimonialData =
+    [
+        new("Marcus Chen", "Venture Partner, SF",
+            "VoyageAI found a boutique riad in Marrakech that wasn't even on the major booking sites. The AI understood my preference for design over brand.",
+            "https://i.pravatar.cc/150?img=11"),
+        new("Elena Rodriguez", "Documentary Filmmaker",
+            "Planning a multi-city shoot in Patagonia felt impossible until I used the AI Planner. It optimized my travel route perfectly around the local light cycles.",
+            "https://i.pravatar.cc/150?img=5"),
+        new("David Larsson", "Global Nomad",
+            "The zero-UI interface is addictive. I just typed 'surprise me with something quiet and green' and ended up in the most beautiful forest in Slovenia.",
+            "https://i.pravatar.cc/150?img=12"),
+    ];
+}

@@ -1,0 +1,39 @@
+<MudContainer MaxWidth="MaxWidth.False" Class="px-6 py-4">
+    <MudPaper Style="background: linear-gradient(135deg, #0f1c2e, #1a2b4a); border-radius: 16px; padding: 40px;" Elevation="4">
+        <MudGrid Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <MudItem xs="12" sm="5">
+                <MudText Typo="Typo.h5" Style="font-weight: 700; color: #fff; font-style: italic;">
+                    Get the Horizon Digest
+                </MudText>
+                <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.7);" Class="mt-2">
+                    Weekly AI-discovered gems and exclusive early access to new curated routes.
+                </MudText>
+            </MudItem>
+            <MudItem xs="12" sm="5">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudTextField T="string" Placeholder="Enter your email" Variant="Variant.Outlined"
+                                  Style="background: rgba(255,255,255,0.1); border-radius: 8px;"
+                                  Class="newsletter-input" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Tertiary" Size="Size.Large"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 600;">
+                        Subscribe
+                    </MudButton>
+                </MudStack>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+</MudContainer>
+
+<style>
+    .newsletter-input .mud-input-outlined-border {
+        border-color: rgba(255,255,255,0.2) !important;
+    }
+
+    .newsletter-input input {
+        color: #fff !important;
+    }
+
+    .newsletter-input input::placeholder {
+        color: rgba(255,255,255,0.5) !important;
+    }
+</style>
