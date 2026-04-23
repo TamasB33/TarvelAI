@@ -1,0 +1,160 @@
+@page "/ai-planner"
+@rendermode InteractiveServer
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>AI Planner – TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-12">
+
+    <MudStack Spacing="2" Class="mb-8">
+        <MudText Typo="Typo.h4" Style="font-weight: 700; color: #1a2b4a;">
+            AI Travel Planner
+        </MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary">
+            Describe your dream trip in plain English. Our AI will respond in real time.
+        </MudText>
+    </MudStack>
+
+    <!-- Chat history -->
+    <MudPaper Elevation="0" Style="border: 1px solid #e2e8f0; border-radius: 16px; min-height: 360px; max-height: 520px; overflow-y: auto; padding: 24px; background: #f8fafc;" @ref="_chatBox">
+        @if (!_messages.Any())
+        {
+            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 300px; opacity: 0.45;">
+                <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 64px; color: #00539C;" />
+                <MudText Typo="Typo.body1" Style="color: #5a6a7a;">Ask me anything about your next trip…</MudText>
+            </MudStack>
+        }
+
+        @foreach (var msg in _messages)
+        {
+            <MudStack Row="@(msg.IsUser)" Justify="@(msg.IsUser ? Justify.FlexEnd : Justify.FlexStart)" Class="mb-4">
+                @if (!msg.IsUser)
+                {
+                    <MudAvatar Size="Size.Small" Style="background: #00539C; color: #fff; margin-right: 8px; flex-shrink: 0;">
+                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" />
+                    </MudAvatar>
+                }
+                <MudPaper Elevation="0"
+                          Style="@($"max-width: 78%; padding: 12px 16px; border-radius: {(msg.IsUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px")}; background: {(msg.IsUser ? "#00539C" : "#fff")}; color: {(msg.IsUser ? "#fff" : "#1a2b4a")}; border: {(msg.IsUser ? "none" : "1px solid #e2e8f0")}; word-break: break-word;")">
+                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap; line-height: 1.6;">@msg.Text</MudText>
+
+                    @if (msg.IsStreaming)
+                    {
+                        <span class="typing-cursor">|</span>
+                    }
+                </MudPaper>
+            </MudStack>
+        }
+    </MudPaper>
+
+    <!-- Input bar -->
+    <MudPaper Elevation="2" Style="border-radius: 16px; padding: 8px 8px 8px 16px; margin-top: 16px; display: flex; align-items: center; gap: 8px;">
+        <MudTextField T="string" @bind-Value="_input"
+                      Placeholder="e.g. Plan me a 10-day cultural trip to Japan in October…"
+                      Variant="Variant.Text" Underline="false"
+                      Style="flex: 1;"
+                      Disabled="_streaming"
+                      OnKeyDown="HandleKeyDown" />
+        <MudIconButton Icon="@Icons.Material.Filled.Send"
+                       Color="Color.Primary" Variant="Variant.Filled"
+                       Style="border-radius: 12px;"
+                       Disabled="@(_streaming || string.IsNullOrWhiteSpace(_input))"
+                       OnClick="SendAsync" />
+    </MudPaper>
+
+    @if (_streaming)
+    {
+        <MudText Typo="Typo.caption" Style="color: #94a3b8; margin-top: 6px; margin-left: 4px;">
+            <MudProgressLinear Indeterminate Color="Color.Primary" Size="Size.Small" Rounded Style="margin-bottom: 4px;" />
+            AI is thinking…
+        </MudText>
+    }
+</MudContainer>
+
+<style>
+    .typing-cursor {
+        display: inline-block;
+        animation: blink 0.8s step-end infinite;
+        color: #00539C;
+        font-weight: 700;
+        margin-left: 2px;
+    }
+    @@keyframes blink {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0; }
+    }
+</style>
+
+@code {
+    private HubConnection? _hub;
+    private string _input = "";
+    private bool _streaming;
+    private MudPaper? _chatBox;
+
+    private class ChatMessage
+    {
+        public bool IsUser { get; init; }
+        public string Text { get; set; } = "";
+        public bool IsStreaming { get; set; }
+    }
+
+    private List<ChatMessage> _messages = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _hub = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/travel"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        _hub.On<string>("StreamStarted", type =>
+        {
+            if (type != "ai") return;
+            _streaming = true;
+            _messages.Add(new ChatMessage { IsUser = false, Text = "", IsStreaming = true });
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hub.On<string>("ReceiveToken", token =>
+        {
+            var last = _messages.LastOrDefault(m => !m.IsUser);
+            if (last is not null) last.Text += token;
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hub.On<string>("StreamEnded", type =>
+        {
+            if (type != "ai") return;
+            var last = _messages.LastOrDefault(m => !m.IsUser);
+            if (last is not null) last.IsStreaming = false;
+            _streaming = false;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _hub.StartAsync();
+    }
+
+    private async Task SendAsync()
+    {
+        var prompt = _input.Trim();
+        if (string.IsNullOrEmpty(prompt) || _hub is null) return;
+
+        _messages.Add(new ChatMessage { IsUser = true, Text = prompt });
+        _input = "";
+        await InvokeAsync(StateHasChanged);
+
+        await _hub.SendAsync("AskAI", prompt);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+            await SendAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
+    }
+}

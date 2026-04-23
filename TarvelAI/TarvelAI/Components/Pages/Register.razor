@@ -1,0 +1,64 @@
+@page "/register"
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Nav
+
+<PageTitle>Register - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-12">
+    <MudCard Elevation="4" Style="border-radius:16px">
+        <MudCardContent>
+            <MudText Typo="Typo.h4" Align="Align.Center" Style="font-weight: 700; color: #1a2b4a; font-style: italic;" Class="mb-6">
+                Join TravelAI
+            </MudText>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+            }
+
+            <form method="post" action="/account/register">
+                <AntiforgeryToken />
+
+                <MudTextField Value="@email" ValueChanged="@((string v) => email = v)" Label="Email"
+                              Variant="Variant.Outlined" InputType="InputType.Email"
+                              Class="mb-4" name="email" />
+
+                <MudTextField Value="@password" ValueChanged="@((string v) => password = v)" Label="Password"
+                              Variant="Variant.Outlined" InputType="InputType.Password"
+                              Class="mb-4" name="password" HelperText="Minimum 6 characters" />
+
+                <MudTextField Value="@confirmPassword" ValueChanged="@((string v) => confirmPassword = v)"
+                              Label="Confirm Password" Variant="Variant.Outlined" InputType="InputType.Password"
+                              Class="mb-4" name="confirmPassword" />
+
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" FullWidth="true" Size="Size.Large"
+                           Style="border-radius: 8px; text-transform: none; font-weight: 600;">
+                    <span>Create Account</span>
+                </MudButton>
+            </form>
+
+            <MudText Align="Align.Center" Class="mt-4">
+                Already have an account? <MudLink Href="/login">Sign in</MudLink>
+            </MudText>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private string email = "";
+    private string password = "";
+    private string confirmPassword = "";
+
+    protected override void OnInitialized()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("error", out var err))
+        {
+            errorMessage = string.Join(" ", err.ToString().Split('|').Select(Uri.UnescapeDataString));
+        }
+    }
+}

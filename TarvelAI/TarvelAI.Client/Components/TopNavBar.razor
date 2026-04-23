@@ -10,38 +10,65 @@
         <MudSpacer />
 
         <MudStack Row Spacing="6" Class="mx-6">
-            <MudLink Href="/" Underline="Underline.None" 
-                     Style="@GetLinkStyle("/")" 
+            <MudLink Href="/" Underline="Underline.None"
+                     Style="@GetLinkStyle("/")"
                      Class="nav-link">
                 Explore
             </MudLink>
-            <MudLink Href="/ai-planner" Underline="Underline.None" 
-                     Style="@GetLinkStyle("/ai-planner")" 
+            <MudLink Href="/ai-planner" Underline="Underline.None"
+                     Style="@GetLinkStyle("/ai-planner")"
                      Class="nav-link">
                 AI Planner
             </MudLink>
-            <MudLink Href="/my-trips" Underline="Underline.None" 
-                     Style="@GetLinkStyle("/my-trips")" 
+            <MudLink Href="/my-trips" Underline="Underline.None"
+                     Style="@GetLinkStyle("/my-trips")"
                      Class="nav-link">
                 My Trips
             </MudLink>
-            <MudLink Href="/support" Underline="Underline.None" 
-                     Style="@GetLinkStyle("/support")" 
+            <MudLink Href="/support" Underline="Underline.None"
+                     Style="@GetLinkStyle("/support")"
                      Class="nav-link">
                 Support
             </MudLink>
         </MudStack>
 
-        <MudButton Variant="Variant.Filled" 
-                   Color="Color.Primary" 
-                   Href="/get-started"
-                   Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 8px 24px;">
-            Get Started
-        </MudButton>
+        <AuthorizeView>
+            <Authorized Context="authContext">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.body2" Style="color: #5a6a7a;">
+                        @authContext.User.Identity?.Name
+                    </MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="HandleLogout"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 8px 24px;">
+                        Log Out
+                    </MudButton>
+                </MudStack>
+            </Authorized>
+            <NotAuthorized>
+                <MudStack Row="true" Spacing="2">
+                    <MudButton Variant="Variant.Text" Color="Color.Primary"
+                               Href="/login"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 500;">
+                        Sign In
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               Href="/register"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 8px 24px;">
+                        Get Started
+                    </MudButton>
+                </MudStack>
+            </NotAuthorized>
+        </AuthorizeView>
     </MudContainer>
 </MudAppBar>
 
 @code {
+    private void HandleLogout()
+    {
+        Navigation.NavigateTo("/logout", forceLoad: true);
+    }
+
     private string GetLinkStyle(string href)
     {
         var isActive = Navigation.Uri.EndsWith(href) || (href == "/" && Navigation.Uri.EndsWith(Navigation.BaseUri.TrimEnd('/')));
@@ -57,3 +84,4 @@
         Navigation.LocationChanged += (s, e) => StateHasChanged();
     }
 }
+

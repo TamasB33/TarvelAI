@@ -1,0 +1,66 @@
+﻿@page "/login"
+@using Microsoft.AspNetCore.WebUtilities
+@inject NavigationManager Nav
+
+<PageTitle>Login - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-12">
+    <MudCard Elevation="4" Style="border-radius:16px">
+        <MudCardContent>
+            <MudText Typo="Typo.h4" Align="Align.Center" Style="font-weight: 700; color: #1a2b4a; font-style: italic;" Class="mb-6">
+                Welcome Back
+            </MudText>
+
+            @if (!string.IsNullOrEmpty(errorMessage))
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
+            }
+
+            <form method="post" action="/account/login">
+                <AntiforgeryToken />
+                <input type="hidden" name="returnUrl" value="/" />
+
+                <MudTextField Value="@email" ValueChanged="@((string v) => email = v)" Label="Email"
+                              Variant="Variant.Outlined" InputType="InputType.Email"
+                              Class="mb-4" name="email" />
+
+                <MudTextField Value="@password" ValueChanged="@((string v) => password = v)" Label="Password"
+                              Variant="Variant.Outlined" InputType="InputType.Password"
+                              Class="mb-4" name="password" />
+
+                <MudCheckBox Value="@rememberMe" ValueChanged="@((bool v) => rememberMe = v)"
+                             Label="Remember me" Color="Color.Primary" Class="mb-4" name="rememberMe" />
+
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" FullWidth="true" Size="Size.Large"
+                           Style="border-radius: 8px; text-transform: none; font-weight: 600;">
+                    <span>Sign In</span>
+                </MudButton>
+            </form>
+
+            <MudText Align="Align.Center" Class="mt-4">
+                Don't have an account? <MudLink Href="/register">Sign up</MudLink>
+            </MudText>
+        </MudCardContent>
+    </MudCard>
+</MudContainer>
+
+@code {
+    private string? errorMessage;
+    private string email = "";
+    private string password = "";
+    private bool rememberMe;
+
+    protected override void OnInitialized()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        if (query.TryGetValue("error", out var err))
+        {
+            errorMessage = err == "locked"
+                ? "Account is locked out. Try again later."
+                : "Invalid email or password.";
+        }
+    }
+}

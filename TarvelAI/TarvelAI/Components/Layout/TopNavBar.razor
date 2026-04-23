@@ -1,0 +1,72 @@
+@rendermode InteractiveServer
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using Microsoft.AspNetCore.Components.Authorization
+
+<MudAppBar Elevation="0" Color="Color.Surface" Style="border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 1000;">
+    <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="d-flex align-center py-2">
+        <MudText Typo="Typo.h5" Style="font-weight: 700; color: #00539C; cursor: pointer; letter-spacing: -0.5px;">
+            <MudLink Href="/" Underline="Underline.None" Style="color: inherit;">TravelAI</MudLink>
+        </MudText>
+
+        <MudSpacer />
+
+        <MudStack Row Spacing="6" Class="mx-6 d-none d-sm-flex">
+            <MudLink Href="/" Underline="Underline.None" Style="@GetLinkStyle("/")">Explore</MudLink>
+            <MudLink Href="/ai-planner" Underline="Underline.None" Style="@GetLinkStyle("/ai-planner")">AI Planner</MudLink>
+            <MudLink Href="/my-trips" Underline="Underline.None" Style="@GetLinkStyle("/my-trips")">My Trips</MudLink>
+            <MudLink Href="/support" Underline="Underline.None" Style="@GetLinkStyle("/support")">Support</MudLink>
+        </MudStack>
+
+        <AuthorizeView>
+            <Authorized>
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <MudText Typo="Typo.body2" Style="color: #5a6a7a;">@_userName</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               OnClick="HandleLogout"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 6px 20px;">
+                        Log Out
+                    </MudButton>
+                </MudStack>
+            </Authorized>
+            <NotAuthorized>
+                <MudStack Row Spacing="2">
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/login"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 500;">
+                        Sign In
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/register"
+                               Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 6px 20px;">
+                        Get Started
+                    </MudButton>
+                </MudStack>
+            </NotAuthorized>
+        </AuthorizeView>
+    </MudContainer>
+</MudAppBar>
+
+@code {
+    private string? _userName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Navigation.LocationChanged += (_, _) => StateHasChanged();
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userName = state.User.Identity?.Name;
+    }
+
+    private void HandleLogout() => Navigation.NavigateTo("/logout", forceLoad: true);
+
+    private string GetLinkStyle(string href)
+    {
+        var current = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var target = href.TrimStart('/');
+        var isActive = href == "/" ? current == "" : current.StartsWith(target);
+        return isActive
+            ? "color: #00539C; font-weight: 600; font-size: 15px; border-bottom: 2px solid #00539C; padding-bottom: 2px; transition: color 0.2s;"
+            : "color: #757575; font-weight: 500; font-size: 15px; padding-bottom: 2px; transition: color 0.2s;";
+    }
+
+    protected override void OnInitialized()
+        => Navigation.LocationChanged += (_, _) => StateHasChanged();
+}
