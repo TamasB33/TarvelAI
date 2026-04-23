@@ -1,43 +1,82 @@
+@rendermode InteractiveServer
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
 <MudContainer MaxWidth="MaxWidth.Large" Class="py-12">
-    <MudText Typo="Typo.h4" Style="font-weight: 700; color: #1a2b4a;">
-        Featured AI-Curated Destinations
-    </MudText>
-    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
-        Our neural networks have analyzed millions of reviews, weather patterns, and flight costs to find the perfect escape for you.
-    </MudText>
+    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+        <div>
+            <MudText Typo="Typo.h4" Style="font-weight: 700; color: #1a2b4a;">
+                Featured AI-Curated Destinations
+            </MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-2">
+                Our neural networks analysed millions of reviews, weather patterns, and flight costs to find your perfect escape.
+            </MudText>
+        </div>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   OnClick="RefreshAsync" Disabled="_streaming"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   Style="border-radius: 20px; text-transform: none; white-space: nowrap;">
+            @(_streaming ? "Loading…" : "Refresh")
+        </MudButton>
+    </MudStack>
 
-    <MudGrid Spacing="4">
-        @for (int i = 0; i < Destinations.Count; i++)
-        {
-            var dest = Destinations[i];
-            var isLarge = i == 0;
-            var isWide = i == Destinations.Count - 1;
+    @if (_streaming && !Destinations.Any())
+    {
+        <MudGrid Spacing="4">
+            @for (int i = 0; i < 6; i++)
+            {
+                <MudItem xs="12" sm="4">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="220px" Style="border-radius: 16px;" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudGrid Spacing="4">
+            @for (int i = 0; i < Destinations.Count; i++)
+            {
+                var dest = Destinations[i];
+                var isLarge = i == 0;
+                var isWide = i == Destinations.Count - 1;
+                var delay = i * 80;
 
-            <MudItem xs="12" sm="@(isLarge ? 4 : isWide ? 8 : 4)" md="@(isLarge ? 4 : isWide ? 8 : 4)"
-                     Class="@(isLarge ? "dest-card-large" : "")">
-                <MudCard Class="dest-card" Elevation="4" Style="height: 100%;">
-                    <MudContainer MaxWidth="MaxWidth.False" Style="position: relative; height: 100%; padding: 0;">
-                        <MudImage Src="@dest.ImageUrl" Alt="@dest.Title"
-                                  ObjectFit="ObjectFit.Cover"
-                                  Class="dest-card-img" />
-                        <MudOverlay Visible="true" Absolute="true" DarkBackground="false" Class="dest-card-gradient">
-                            <MudStack Justify="Justify.FlexEnd" Class="pa-4" Style="height: 100%;">
-                                @if (isLarge)
-                                {
+                <MudItem xs="12" sm="@(isLarge ? 4 : isWide ? 8 : 4)"
+                         md="@(isLarge ? 4 : isWide ? 8 : 4)"
+                         Class="@(isLarge ? "dest-card-large" : "")"
+                         Style="@($"animation: cardFadeUp 0.5s ease-out {delay}ms both;")">
+                    <MudCard Class="dest-card mud-elevation-4" Style="height: 100%; cursor: pointer;"
+                             @onmouseenter="() => dest.Hovered = true"
+                             @onmouseleave="() => dest.Hovered = false">
+                        <MudContainer MaxWidth="MaxWidth.False" Style="position: relative; height: 100%; padding: 0; overflow: hidden;">
+                            <MudImage Src="@dest.ImageUrl" Alt="@dest.Title"
+                                      ObjectFit="ObjectFit.Cover"
+                                      Class="dest-card-img"
+                                      Style="@($"transform: scale({(dest.Hovered ? 1.06 : 1)}); transition: transform 0.4s ease;")" />
+                            <MudOverlay Visible="true" Absolute="true" DarkBackground="false" Class="dest-card-gradient">
+                                <MudStack Justify="Justify.FlexEnd" Class="pa-4" Style="height: 100%;">
                                     <MudChip T="string" Size="Size.Small"
-                                             Style="background: rgba(255,255,255,0.2); backdrop-filter: blur(4px); color: #fff; font-weight: 700; letter-spacing: 1px;">
-                                        AI RECOMMENDATION
+                                             Style="background: rgba(255,255,255,0.18); backdrop-filter: blur(6px); color: #fff; font-weight: 700; letter-spacing: 1px; width: fit-content;">
+                                        @dest.Tag
                                     </MudChip>
-                                }
-                                <MudText Typo="Typo.h6" Style="color: #fff; font-weight: 700;">@dest.Title</MudText>
-                                <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.85);">@dest.Description</MudText>
-                            </MudStack>
-                        </MudOverlay>
-                    </MudContainer>
-                </MudCard>
-            </MudItem>
-        }
-    </MudGrid>
+                                    <MudText Typo="Typo.h6" Style="color: #fff; font-weight: 700;">@dest.Title</MudText>
+                                    <MudText Typo="Typo.body2" Style="color: rgba(255,255,255,0.85);">@dest.Description</MudText>
+                                </MudStack>
+                            </MudOverlay>
+                        </MudContainer>
+                    </MudCard>
+                </MudItem>
+            }
+
+            @if (_streaming)
+            {
+                <MudItem xs="12" sm="4">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="220px"
+                                 Style="border-radius: 16px; animation: pulse 1.2s ease-in-out infinite;" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
 </MudContainer>
 
 <style>
@@ -45,61 +84,84 @@
         border-radius: 16px !important;
         overflow: hidden;
         min-height: 220px;
+        transition: box-shadow 0.3s ease;
     }
+    .dest-card:hover { box-shadow: 0 12px 40px rgba(0,83,156,0.18) !important; }
+    .dest-card-large .dest-card { min-height: 460px; }
+    .dest-card-large { grid-row: span 2; }
+    .dest-card-img { width: 100%; height: 100%; display: block; }
+    .dest-card-gradient { background: linear-gradient(to top, rgba(0,0,0,0.72), transparent) !important; }
 
-    .dest-card-large .dest-card {
-        min-height: 460px;
+    @@keyframes cardFadeUp {
+        from { opacity: 0; transform: translateY(24px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
-
-    .dest-card-large {
-        grid-row: span 2;
-    }
-
-    .dest-card-img {
-        width: 100%;
-        height: 100%;
-        display: block;
-    }
-
-    .dest-card-gradient {
-        background: linear-gradient(to top, rgba(0,0,0,0.7), transparent) !important;
+    @@keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50%       { opacity: 0.5; }
     }
 </style>
 
 @code {
-    private record Destination(string Title, string Description, string ImageUrl);
+    private HubConnection? _hub;
+    private bool _streaming;
+
+    private class Destination
+    {
+        public string Title { get; init; } = "";
+        public string Description { get; init; } = "";
+        public string ImageUrl { get; init; } = "";
+        public string Tag { get; init; } = "";
+        public bool Hovered { get; set; }
+    }
 
     private List<Destination> Destinations { get; set; } = [];
 
-    private static readonly (string Title, string Description, string Query)[] DestinationPool =
-    [
-        ("Kyoto Modernism", "A blend of ancient shrines and minimalist boutique hotels curated for the thoughtful traveler.", "kyoto+temple"),
-        ("Reykjavik Rim", "Extreme luxury in Iceland.", "iceland+landscape"),
-        ("Amalfi Drift", "Coastal secrets revealed.", "amalfi+coast"),
-        ("Serengeti Pulse", "Ethical safari experiences mapped by AI.", "serengeti+safari"),
-        ("Santorini Glow", "Sunset views over the caldera.", "santorini+sunset"),
-        ("Patagonia Wild", "Untamed beauty at the edge of the world.", "patagonia+mountains"),
-        ("Bali Serenity", "Tropical wellness retreats.", "bali+rice+terrace"),
-        ("Swiss Alpine", "Peaks and charm in the heart of Europe.", "swiss+alps"),
-        ("Marrakech Mosaic", "Vibrant markets and hidden riads.", "marrakech+market"),
-        ("Banff Majesty", "Crystal lakes and towering Rockies.", "banff+lake"),
-        ("Maldives Drift", "Overwater luxury in turquoise paradise.", "maldives+ocean"),
-        ("Cape Town Edge", "Where mountains meet the sea.", "cape+town+mountain"),
-    ];
-
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
-        var rng = Random.Shared;
-        var indices = Enumerable.Range(0, DestinationPool.Length)
-            .OrderBy(_ => rng.Next())
-            .Take(4)
-            .ToList();
+        _hub = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/travel"))
+            .WithAutomaticReconnect()
+            .Build();
 
-        Destinations = indices.Select(i =>
+        _hub.On<object>("StreamStarted", _ =>
         {
-            var d = DestinationPool[i];
-            var imageUrl = $"https://picsum.photos/seed/{d.Query}-{rng.Next(10000)}/800/600";
-            return new Destination(d.Title, d.Description, imageUrl);
-        }).ToList();
+            _streaming = true;
+            Destinations.Clear();
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hub.On<System.Text.Json.JsonElement>("ReceiveDestination", raw =>
+        {
+            Destinations.Add(new Destination
+            {
+                Title       = raw.GetProperty("title").GetString() ?? "",
+                Description = raw.GetProperty("description").GetString() ?? "",
+                ImageUrl    = raw.GetProperty("imageUrl").GetString() ?? "",
+                Tag         = raw.GetProperty("tag").GetString() ?? ""
+            });
+            InvokeAsync(StateHasChanged);
+        });
+
+        _hub.On<object>("StreamEnded", _ =>
+        {
+            _streaming = false;
+            InvokeAsync(StateHasChanged);
+        });
+
+        await _hub.StartAsync();
+        await _hub.SendAsync("RequestDestinations", (string?)null);
+    }
+
+    private async Task RefreshAsync()
+    {
+        if (_hub is null) return;
+        await _hub.SendAsync("RequestDestinations", (string?)null);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_hub is not null) await _hub.DisposeAsync();
     }
 }
+
