@@ -1,6 +1,7 @@
 @page "/register"
-@using Microsoft.AspNetCore.WebUtilities
+@rendermode InteractiveServer
 @inject NavigationManager Nav
+@inject HttpClient Http
 
 <PageTitle>Register - TravelAI</PageTitle>
 
@@ -16,27 +17,28 @@
                 <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
             }
 
-            <form method="post" action="/account/register">
-                <AntiforgeryToken />
+            <MudTextField @bind-Value="email" Label="Email"
+                          Variant="Variant.Outlined" InputType="InputType.Email"
+                          Class="mb-4" />
 
-                <MudTextField Value="@email" ValueChanged="@((string v) => email = v)" Label="Email"
-                              Variant="Variant.Outlined" InputType="InputType.Email"
-                              Class="mb-4" name="email" />
+            <MudTextField @bind-Value="password" Label="Password"
+                          Variant="Variant.Outlined" InputType="InputType.Password"
+                          Class="mb-4" HelperText="Minimum 6 characters" />
 
-                <MudTextField Value="@password" ValueChanged="@((string v) => password = v)" Label="Password"
-                              Variant="Variant.Outlined" InputType="InputType.Password"
-                              Class="mb-4" name="password" HelperText="Minimum 6 characters" />
+            <MudTextField @bind-Value="confirmPassword"
+                          Label="Confirm Password" Variant="Variant.Outlined" InputType="InputType.Password"
+                          Class="mb-4" />
 
-                <MudTextField Value="@confirmPassword" ValueChanged="@((string v) => confirmPassword = v)"
-                              Label="Confirm Password" Variant="Variant.Outlined" InputType="InputType.Password"
-                              Class="mb-4" name="confirmPassword" />
-
-                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
-                           Color="Color.Primary" FullWidth="true" Size="Size.Large"
-                           Style="border-radius: 8px; text-transform: none; font-weight: 600;">
-                    <span>Create Account</span>
-                </MudButton>
-            </form>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Size="Size.Large" Disabled="@isSubmitting"
+                       Style="border-radius: 8px; text-transform: none; font-weight: 600;"
+                       OnClick="HandleRegister">
+                @if (isSubmitting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                <span>Create Account</span>
+            </MudButton>
 
             <MudText Align="Align.Center" Class="mt-4">
                 Already have an account? <MudLink Href="/login">Sign in</MudLink>
@@ -50,15 +52,40 @@
     private string email = "";
     private string password = "";
     private string confirmPassword = "";
+    private bool isSubmitting = false;
 
-    protected override void OnInitialized()
+    private async Task HandleRegister()
     {
-        var uri = Nav.ToAbsoluteUri(Nav.Uri);
-        var query = QueryHelpers.ParseQuery(uri.Query);
+        errorMessage = null;
 
-        if (query.TryGetValue("error", out var err))
+        if (password != confirmPassword)
         {
-            errorMessage = string.Join(" ", err.ToString().Split('|').Select(Uri.UnescapeDataString));
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+
+        isSubmitting = true;
+        try
+        {
+            var response = await Http.PostAsJsonAsync("/api/auth/register", new { Email = email, Password = password });
+
+            if (response.IsSuccessStatusCode)
+            {
+                Nav.NavigateTo("/login");
+            }
+            else
+            {
+                var errors = await response.Content.ReadFromJsonAsync<IEnumerable<string>>();
+                errorMessage = errors is not null ? string.Join(" ", errors) : "Registration failed.";
+            }
+        }
+        catch
+        {
+            errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            isSubmitting = false;
         }
     }
 }

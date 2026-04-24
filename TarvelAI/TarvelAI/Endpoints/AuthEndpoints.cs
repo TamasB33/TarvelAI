@@ -1,5 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.Mvc;
+using System.Data;
 
 namespace TarvelAI.Endpoints
 {
@@ -7,6 +9,29 @@ namespace TarvelAI.Endpoints
     {
         public static void MapAuthEndpoints(this WebApplication app)
         {
+            app.MapPost("/account/login", async (
+                [FromForm] string email,
+                [FromForm] string password,
+                [FromForm] bool rememberMe,
+                SignInManager<IdentityUser> signInManager) =>
+            {
+                var result = await signInManager.PasswordSignInAsync(email, password, rememberMe, lockoutOnFailure: true);
+
+                if (result.Succeeded)
+                    return Results.Redirect("/");
+
+                if (result.IsLockedOut)
+                    return Results.Redirect("/login?error=locked");
+
+                return Results.Redirect("/login?error=invalid");
+            }).DisableAntiforgery();
+
+            app.MapPost("/account/logout", async (SignInManager<IdentityUser> signInManager) =>
+            {
+                await signInManager.SignOutAsync();
+                return Results.Redirect("/");
+            }).DisableAntiforgery();
+
             app.MapPost("/api/auth/register", async (
                 RegisterRequest req,
                 UserManager<IdentityUser> userManager) =>
@@ -14,11 +39,21 @@ namespace TarvelAI.Endpoints
               
 
                 var user = new IdentityUser { UserName = req.Email, Email = req.Email };
-                var result = await userManager.CreateAsync(user, req.Password);
+                var userCreation = await userManager.CreateAsync(user, req.Password);
 
-                return result.Succeeded
-                    ? Results.Ok(new { message = "Registration successful." })
-                    : Results.BadRequest(result.Errors.Select(e => e.Description));
+                if (!userCreation.Succeeded)
+                {
+                    return Results.BadRequest(userCreation.Errors.Select(e => e.Description));
+                }
+
+                var roleResult = await userManager.AddToRoleAsync(user, "User");
+                
+                if (!roleResult.Succeeded)
+                {
+                    return Results.BadRequest(roleResult.Errors.Select(e => e.Description));
+                }
+
+                return Results.Ok(new { message = "Registration successful." });
             });
 
             app.MapPost("/api/auth/login", async (

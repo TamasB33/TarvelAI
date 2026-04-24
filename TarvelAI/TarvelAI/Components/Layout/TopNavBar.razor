@@ -50,12 +50,20 @@
 
     protected override async Task OnInitializedAsync()
     {
+        AuthStateProvider.AuthenticationStateChanged += OnAuthStateChanged;
         Navigation.LocationChanged += (_, _) => StateHasChanged();
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
         _userName = state.User.Identity?.Name;
     }
 
-    private void HandleLogout() => Navigation.NavigateTo("/logout", forceLoad: true);
+    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        var state = await task;
+        _userName = state.User.Identity?.Name;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void HandleLogout() => Navigation.NavigateTo("/account/logout", forceLoad: true);
 
     private string GetLinkStyle(string href)
     {
@@ -66,7 +74,4 @@
             ? "color: #00539C; font-weight: 600; font-size: 15px; border-bottom: 2px solid #00539C; padding-bottom: 2px; transition: color 0.2s;"
             : "color: #757575; font-weight: 500; font-size: 15px; padding-bottom: 2px; transition: color 0.2s;";
     }
-
-    protected override void OnInitialized()
-        => Navigation.LocationChanged += (_, _) => StateHasChanged();
 }
