@@ -17,24 +17,20 @@
             }
 
             <form method="post" action="/account/login">
-                <AntiforgeryToken />
-                <input type="hidden" name="returnUrl" value="/" />
-
-                <MudTextField Value="@email" ValueChanged="@((string v) => email = v)" Label="Email"
+                <MudTextField T="string" name="email" Label="Email"
                               Variant="Variant.Outlined" InputType="InputType.Email"
-                              Class="mb-4" name="email" />
+                              Class="mb-4" />
 
-                <MudTextField Value="@password" ValueChanged="@((string v) => password = v)" Label="Password"
+                <MudTextField T="string" name="password" Label="Password"
                               Variant="Variant.Outlined" InputType="InputType.Password"
-                              Class="mb-4" name="password" />
+                              Class="mb-4" />
 
-                <MudCheckBox Value="@rememberMe" ValueChanged="@((bool v) => rememberMe = v)"
-                             Label="Remember me" Color="Color.Primary" Class="mb-4" name="rememberMe" />
+                <input type="hidden" name="rememberMe" value="false" />
 
                 <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
                            Color="Color.Primary" FullWidth="true" Size="Size.Large"
                            Style="border-radius: 8px; text-transform: none; font-weight: 600;">
-                    <span>Sign In</span>
+                    Sign In
                 </MudButton>
             </form>
 
@@ -47,9 +43,6 @@
 
 @code {
     private string? errorMessage;
-    private string email = "";
-    private string password = "";
-    private bool rememberMe;
 
     protected override void OnInitialized()
     {
