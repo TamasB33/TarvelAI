@@ -9,6 +9,7 @@ using TarvelAI.Components;
 using TarvelAI.Data;
 using TarvelAI.Endpoints;
 using TarvelAI.Hubs;
+using TarvelAI.Repositories;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
 
@@ -17,6 +18,8 @@ var builder = WebApplication.CreateBuilder(args);
 // ── Blazor Server (no WASM) ───────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddValidation();
 
 builder.Services.AddRazorPages();
 builder.Services.AddMudServices();
@@ -48,6 +51,13 @@ builder.Services.ConfigureApplicationCookie(o =>
     o.LogoutPath = "/logout";
 });
 
+// ── Repositories ──────────────────────────────────────────────────────────────
+builder.Services.AddScoped<IHotelRepository, HotelRepository>();
+
+// ── Authorization policies ────────────────────────────────────────────────────
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+
 var app = builder.Build();
 
 using(var scope = app.Services.CreateScope())
@@ -75,6 +85,7 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapAuthEndpoints();
+app.MapHotelEndpoints();
 app.MapRazorPages();
 
 // ── SignalR hub ───────────────────────────────────────────────────────────────
