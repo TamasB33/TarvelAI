@@ -10,6 +10,8 @@ using TarvelAI.Data;
 using TarvelAI.Endpoints;
 using TarvelAI.Hubs;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Blazor Server (no WASM) ───────────────────────────────────────────────────
@@ -50,8 +52,12 @@ var app = builder.Build();
 
 using(var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var roleManager    = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager    = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var db             = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
     await RoleSeeder.SeedAsync(roleManager);
+    await TripSeeder.SeedAsync(db, userManager);
 }
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
