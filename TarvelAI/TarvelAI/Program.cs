@@ -53,6 +53,7 @@ builder.Services.ConfigureApplicationCookie(o =>
 
 // ── Repositories ──────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IHotelRepository, HotelRepository>();
+builder.Services.AddScoped<IFlightRepository, FlightRepository>();
 
 // ── Authorization policies ────────────────────────────────────────────────────
 builder.Services.AddAuthorizationBuilder()
@@ -86,6 +87,7 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapAuthEndpoints();
 app.MapHotelEndpoints();
+app.MapFlightEndpoints();
 app.MapRazorPages();
 
 // ── SignalR hub ───────────────────────────────────────────────────────────────
