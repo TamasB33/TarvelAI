@@ -1,0 +1,157 @@
+@page "/admin/flights"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using TarvelAI.DTOs.Flight
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin - Flights</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Flights</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog">
+        Add Flight
+    </MudButton>
+</MudStack>
+
+@if (_flights is null)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else
+{
+    <MudTable Items="_flights" Hover Striped Elevation="2" Style="border-radius:12px;">
+        <HeaderContent>
+            <MudTh>Flight No.</MudTh>
+            <MudTh>Airline</MudTh>
+            <MudTh>From</MudTh>
+            <MudTh>To</MudTh>
+            <MudTh>Departure</MudTh>
+            <MudTh>Arrival</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FlightNumber</MudTd>
+            <MudTd>@context.Airline</MudTd>
+            <MudTd>@context.OriginAirport</MudTd>
+            <MudTd>@context.DestinationAirport</MudTd>
+            <MudTd>@context.DepartureTime.ToString("dd MMM yyyy HH:mm")</MudTd>
+            <MudTd>@context.ArrivalTime.ToString("dd MMM yyyy HH:mm")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                               OnClick="() => OpenEditDialog(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="() => DeleteFlight(context.Id)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+<MudDialog @bind-Visible="_dialogOpen">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingId is null ? "Add Flight" : "Edit Flight")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_form.FlightNumber"       Label="Flight Number" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.Airline"            Label="Airline"       Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.OriginAirport"      Label="Origin (IATA)" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.DestinationAirport" Label="Destination (IATA)" Variant="Variant.Outlined" />
+            <MudDatePicker @bind-Date="_departureDate" Label="Departure Date" Variant="Variant.Outlined" />
+            <MudTimePicker @bind-Time="_departureTime" Label="Departure Time" Variant="Variant.Outlined" />
+            <MudDatePicker @bind-Date="_arrivalDate"   Label="Arrival Date"   Variant="Variant.Outlined" />
+            <MudTimePicker @bind-Time="_arrivalTime"   Label="Arrival Time"   Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.ImageUrl" Label="Image URL" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _dialogOpen = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveFlight">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<FlightDto>?  _flights;
+    private bool              _dialogOpen;
+    private int?              _editingId;
+    private CreateFlightDto   _form = new();
+
+    private DateTime? _departureDate;
+    private TimeSpan? _departureTime;
+    private DateTime? _arrivalDate;
+    private TimeSpan? _arrivalTime;
+
+    protected override async Task OnInitializedAsync() => await LoadFlights();
+
+    private async Task LoadFlights()
+        => _flights = await Http.GetFromJsonAsync<List<FlightDto>>("/api/flights");
+
+    private void OpenCreateDialog()
+    {
+        _editingId     = null;
+        _form          = new();
+        _departureDate = null; _departureTime = null;
+        _arrivalDate   = null; _arrivalTime   = null;
+        _dialogOpen    = true;
+    }
+
+    private void OpenEditDialog(FlightDto flight)
+    {
+        _editingId = flight.Id;
+        _form = new CreateFlightDto
+        {
+            FlightNumber       = flight.FlightNumber,
+            Airline            = flight.Airline,
+            OriginAirport      = flight.OriginAirport,
+            DestinationAirport = flight.DestinationAirport,
+            ImageUrl           = flight.ImageUrl
+        };
+        _departureDate = flight.DepartureTime.Date;
+        _departureTime = flight.DepartureTime.TimeOfDay;
+        _arrivalDate   = flight.ArrivalTime.Date;
+        _arrivalTime   = flight.ArrivalTime.TimeOfDay;
+        _dialogOpen    = true;
+    }
+
+    private async Task SaveFlight()
+    {
+        _form.DepartureTime = (_departureDate ?? DateTime.UtcNow).Date + (_departureTime ?? TimeSpan.Zero);
+        _form.ArrivalTime   = (_arrivalDate   ?? DateTime.UtcNow).Date + (_arrivalTime   ?? TimeSpan.Zero);
+
+        HttpResponseMessage response;
+        if (_editingId is null)
+            response = await Http.PostAsJsonAsync("/api/flights", _form);
+        else
+            response = await Http.PutAsJsonAsync($"/api/flights/{_editingId}", _form);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add(_editingId is null ? "Flight created." : "Flight updated.", Severity.Success);
+            _dialogOpen = false;
+            await LoadFlights();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteFlight(int id)
+    {
+        var response = await Http.DeleteAsync($"/api/flights/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Flight deleted.", Severity.Success);
+            await LoadFlights();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+}

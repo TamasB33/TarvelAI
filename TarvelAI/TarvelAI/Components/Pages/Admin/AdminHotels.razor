@@ -1,0 +1,139 @@
+@page "/admin/hotels"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using TarvelAI.DTOs.Hotel
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin - Hotels</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Hotels</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog">
+        Add Hotel
+    </MudButton>
+</MudStack>
+
+@if (_hotels is null)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else
+{
+    <MudTable Items="_hotels" Hover Striped Elevation="2" Style="border-radius:12px;">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>City</MudTh>
+            <MudTh>Country</MudTh>
+            <MudTh>Rating</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.City</MudTd>
+            <MudTd>@context.Country</MudTd>
+            <MudTd>@context.Rating ⭐</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                               OnClick="() => OpenEditDialog(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="() => DeleteHotel(context.Id)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@* Create / Edit Dialog *@
+<MudDialog @bind-Visible="_dialogOpen">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingId is null ? "Add Hotel" : "Edit Hotel")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_form.Name"     Label="Name"    Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.Address"  Label="Address" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.City"     Label="City"    Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_form.Country"  Label="Country" Variant="Variant.Outlined" />
+            <MudNumericField @bind-Value="_form.Rating" Label="Rating (0-5)" Variant="Variant.Outlined" Min="0" Max="5" Step="0.1" />
+            <MudTextField @bind-Value="_form.ImageUrl" Label="Image URL" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _dialogOpen = false">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveHotel">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<HotelDto>? _hotels;
+    private bool            _dialogOpen;
+    private int?            _editingId;
+    private CreateHotelDto  _form = new();
+
+    protected override async Task OnInitializedAsync() => await LoadHotels();
+
+    private async Task LoadHotels()
+        => _hotels = await Http.GetFromJsonAsync<List<HotelDto>>("/api/hotels");
+
+    private void OpenCreateDialog()
+    {
+        _editingId  = null;
+        _form       = new();
+        _dialogOpen = true;
+    }
+
+    private void OpenEditDialog(HotelDto hotel)
+    {
+        _editingId = hotel.Id;
+        _form = new CreateHotelDto
+        {
+            Name     = hotel.Name,
+            Address  = hotel.Address,
+            City     = hotel.City,
+            Country  = hotel.Country,
+            Rating   = hotel.Rating,
+            ImageUrl = hotel.ImageUrl
+        };
+        _dialogOpen = true;
+    }
+
+    private async Task SaveHotel()
+    {
+        HttpResponseMessage response;
+
+        if (_editingId is null)
+            response = await Http.PostAsJsonAsync("/api/hotels", _form);
+        else
+            response = await Http.PutAsJsonAsync($"/api/hotels/{_editingId}", _form);
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add(_editingId is null ? "Hotel created." : "Hotel updated.", Severity.Success);
+            _dialogOpen = false;
+            await LoadHotels();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+
+    private async Task DeleteHotel(int id)
+    {
+        var response = await Http.DeleteAsync($"/api/hotels/{id}");
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Hotel deleted.", Severity.Success);
+            await LoadHotels();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+}

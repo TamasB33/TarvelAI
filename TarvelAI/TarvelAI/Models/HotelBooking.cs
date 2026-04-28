@@ -28,6 +28,9 @@ public class HotelBooking
 
     public BookingStatus Status { get; set; } = BookingStatus.Planned;
 
+    [MaxLength(50)]
+    public string? ConfirmationNumber { get; set; }
+
     // FK to Trip
     public int TripId { get; set; }
     public Trip Trip { get; set; } = null!;

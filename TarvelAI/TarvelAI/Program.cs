@@ -54,6 +54,7 @@ builder.Services.ConfigureApplicationCookie(o =>
 // ── Repositories ──────────────────────────────────────────────────────────────
 builder.Services.AddScoped<IHotelRepository, HotelRepository>();
 builder.Services.AddScoped<IFlightRepository, FlightRepository>();
+builder.Services.AddScoped<ITripRepository, TripRepository>();
 
 // ── Authorization policies ────────────────────────────────────────────────────
 builder.Services.AddAuthorizationBuilder()
@@ -88,7 +89,18 @@ app.MapStaticAssets();
 app.MapAuthEndpoints();
 app.MapHotelEndpoints();
 app.MapFlightEndpoints();
+app.MapTripEndpoints();
 app.MapRazorPages();
+
+// ── Dev-only: wipe and re-seed all data ───────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    app.MapPost("/api/admin/reseed", async (AppDbContext db, UserManager<IdentityUser> um) =>
+    {
+        await TripSeeder.ResetAndSeedAsync(db, um);
+        return Results.Ok("Reseeded successfully.");
+    }).RequireAuthorization("Admin");
+}
 
 // ── SignalR hub ───────────────────────────────────────────────────────────────
 app.MapHub<TravelHub>("/hubs/travel");

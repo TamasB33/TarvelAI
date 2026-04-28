@@ -1,0 +1,95 @@
+@page "/admin"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@inject HttpClient Http
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Dashboard</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+               StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="ReseedAsync"
+               Disabled="_reseeding">
+        @(_reseeding ? "Reseeding..." : "Reset & Reseed Data")
+    </MudButton>
+</MudStack>
+
+<MudGrid>
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius:12px;">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Hotel" Color="Color.Primary" Size="Size.Large" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h4" Style="font-weight:700;">@_hotelCount</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Hotels</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius:12px;">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.Flight" Color="Color.Secondary" Size="Size.Large" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h4" Style="font-weight:700;">@_flightCount</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Flights</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" sm="4">
+        <MudPaper Elevation="2" Class="pa-6" Style="border-radius:12px;">
+            <MudStack Row AlignItems="AlignItems.Center" Spacing="3">
+                <MudIcon Icon="@Icons.Material.Filled.CardTravel" Color="Color.Tertiary" Size="Size.Large" />
+                <MudStack Spacing="0">
+                    <MudText Typo="Typo.h4" Style="font-weight:700;">@_tripCount</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Trips</MudText>
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private int  _hotelCount;
+    private int  _flightCount;
+    private int  _tripCount;
+    private bool _reseeding;
+
+    protected override async Task OnInitializedAsync() => await LoadCountsAsync();
+
+    private async Task LoadCountsAsync()
+    {
+        var hotels  = await Http.GetFromJsonAsync<List<object>>("/api/hotels");
+        var flights = await Http.GetFromJsonAsync<List<object>>("/api/flights");
+        var trips   = await Http.GetFromJsonAsync<List<object>>("/api/trips");
+
+        _hotelCount  = hotels?.Count  ?? 0;
+        _flightCount = flights?.Count ?? 0;
+        _tripCount   = trips?.Count   ?? 0;
+    }
+
+    private async Task ReseedAsync()
+    {
+        _reseeding = true;
+        var response = await Http.PostAsync("/api/admin/reseed", null);
+        _reseeding = false;
+
+        if (response.IsSuccessStatusCode)
+        {
+            Snackbar.Add("Data reseeded successfully.", Severity.Success);
+            await LoadCountsAsync();
+        }
+        else
+        {
+            Snackbar.Add("Reseed failed.", Severity.Error);
+        }
+    }
+}

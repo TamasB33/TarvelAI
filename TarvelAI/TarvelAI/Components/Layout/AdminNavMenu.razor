@@ -1,0 +1,27 @@
+@inject NavigationManager Nav
+
+<MudNavMenu Color="Color.Inherit" Class="pa-2">
+    <MudText Typo="Typo.overline" Class="px-4 pt-4 pb-2" Style="color:#aaa;">OVERVIEW</MudText>
+    <MudNavLink Href="/admin" Match="NavLinkMatch.All"
+                Icon="@Icons.Material.Filled.Dashboard">
+        Dashboard
+    </MudNavLink>
+
+    <MudDivider Class="my-2" />
+    <MudText Typo="Typo.overline" Class="px-4 py-2" Style="color:#aaa;">CONTENT</MudText>
+
+    <MudNavLink Href="/admin/hotels" Match="NavLinkMatch.Prefix"
+                Icon="@Icons.Material.Filled.Hotel">
+        Hotels
+    </MudNavLink>
+
+    <MudNavLink Href="/admin/flights" Match="NavLinkMatch.Prefix"
+                Icon="@Icons.Material.Filled.Flight">
+        Flights
+    </MudNavLink>
+
+    <MudNavLink Href="/admin/trips" Match="NavLinkMatch.Prefix"
+                Icon="@Icons.Material.Filled.CardTravel">
+        Trips
+    </MudNavLink>
+</MudNavMenu>
