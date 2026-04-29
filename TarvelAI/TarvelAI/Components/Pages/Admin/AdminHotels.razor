@@ -4,8 +4,10 @@
 @attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
 @using TarvelAI.DTOs.Hotel
-@inject HttpClient Http
+@using TarvelAI.Repositories
+@inject IHotelRepository HotelRepository
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 
 <PageTitle>Admin - Hotels</PageTitle>
 
@@ -48,49 +50,37 @@ else
     </MudTable>
 }
 
-@* Create / Edit Dialog *@
-<MudDialog @bind-Visible="_dialogOpen">
-    <TitleContent>
-        <MudText Typo="Typo.h6">@(_editingId is null ? "Add Hotel" : "Edit Hotel")</MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudStack Spacing="3">
-            <MudTextField @bind-Value="_form.Name"     Label="Name"    Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="_form.Address"  Label="Address" Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="_form.City"     Label="City"    Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="_form.Country"  Label="Country" Variant="Variant.Outlined" />
-            <MudNumericField @bind-Value="_form.Rating" Label="Rating (0-5)" Variant="Variant.Outlined" Min="0" Max="5" Step="0.1" />
-            <MudTextField @bind-Value="_form.ImageUrl" Label="Image URL" Variant="Variant.Outlined" />
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="() => _dialogOpen = false">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveHotel">Save</MudButton>
-    </DialogActions>
-</MudDialog>
+
 
 @code {
     private List<HotelDto>? _hotels;
-    private bool            _dialogOpen;
-    private int?            _editingId;
-    private CreateHotelDto  _form = new();
 
     protected override async Task OnInitializedAsync() => await LoadHotels();
 
     private async Task LoadHotels()
-        => _hotels = await Http.GetFromJsonAsync<List<HotelDto>>("/api/hotels");
+        => _hotels = (await HotelRepository.GetAllAsync()).ToList();
 
-    private void OpenCreateDialog()
+    private async Task OpenCreateDialog()
     {
-        _editingId  = null;
-        _form       = new();
-        _dialogOpen = true;
+        var form = new CreateHotelDto();
+        var parameters = new DialogParameters<AdminHotelDialog>
+        {
+            { x => x.Title, "Add Hotel" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminHotelDialog>("Add Hotel", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateHotelDto dto })
+        {
+            await HotelRepository.CreateAsync(dto);
+            Snackbar.Add("Hotel created.", Severity.Success);
+            await LoadHotels();
+        }
     }
 
-    private void OpenEditDialog(HotelDto hotel)
+    private async Task OpenEditDialog(HotelDto hotel)
     {
-        _editingId = hotel.Id;
-        _form = new CreateHotelDto
+        var form = new CreateHotelDto
         {
             Name     = hotel.Name,
             Address  = hotel.Address,
@@ -99,34 +89,31 @@ else
             Rating   = hotel.Rating,
             ImageUrl = hotel.ImageUrl
         };
-        _dialogOpen = true;
-    }
-
-    private async Task SaveHotel()
-    {
-        HttpResponseMessage response;
-
-        if (_editingId is null)
-            response = await Http.PostAsJsonAsync("/api/hotels", _form);
-        else
-            response = await Http.PutAsJsonAsync($"/api/hotels/{_editingId}", _form);
-
-        if (response.IsSuccessStatusCode)
+        var parameters = new DialogParameters<AdminHotelDialog>
         {
-            Snackbar.Add(_editingId is null ? "Hotel created." : "Hotel updated.", Severity.Success);
-            _dialogOpen = false;
+            { x => x.Title, "Edit Hotel" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminHotelDialog>("Edit Hotel", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateHotelDto dto })
+        {
+            var update = new UpdateHotelDto
+            {
+                Name = dto.Name, Address = dto.Address, City = dto.City,
+                Country = dto.Country, Rating = dto.Rating, ImageUrl = dto.ImageUrl
+            };
+            var updated = await HotelRepository.UpdateAsync(hotel.Id, update);
+            if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
+            Snackbar.Add("Hotel updated.", Severity.Success);
             await LoadHotels();
-        }
-        else
-        {
-            Snackbar.Add("Something went wrong.", Severity.Error);
         }
     }
 
     private async Task DeleteHotel(int id)
     {
-        var response = await Http.DeleteAsync($"/api/hotels/{id}");
-        if (response.IsSuccessStatusCode)
+        var deleted = await HotelRepository.DeleteAsync(id);
+        if (deleted)
         {
             Snackbar.Add("Hotel deleted.", Severity.Success);
             await LoadHotels();

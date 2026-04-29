@@ -6,9 +6,11 @@
 @using Microsoft.AspNetCore.Components.Authorization
 @using TarvelAI.DTOs.Trip
 @using TarvelAI.Models
-@inject HttpClient Http
+@using TarvelAI.Repositories
+@inject ITripRepository TripRepository
 @inject ISnackbar Snackbar
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
 
 <PageTitle>Admin - Trips</PageTitle>
 
@@ -55,64 +57,45 @@ else
     </MudTable>
 }
 
-@* Create / Edit Dialog *@
-<MudDialog @bind-Visible="_dialogOpen">
-    <TitleContent>
-        <MudText Typo="Typo.h6">@(_editingId is null ? "Add Trip" : "Edit Trip")</MudText>
-    </TitleContent>
-    <DialogContent>
-        <MudStack Spacing="3">
-            <MudTextField @bind-Value="_form.Name"        Label="Name"        Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="_form.Destination" Label="Destination" Variant="Variant.Outlined" />
-            <MudTextField @bind-Value="_form.Description" Label="Description" Variant="Variant.Outlined" Lines="3" />
-            <MudTextField @bind-Value="_form.ImageUrl"    Label="Image URL"   Variant="Variant.Outlined" />
-            <MudNumericField @bind-Value="_form.BasePrice"    Label="Base Price ($)" Variant="Variant.Outlined" Min="0" Step="0.01m" />
-            <MudNumericField @bind-Value="_form.DurationDays" Label="Duration (days)" Variant="Variant.Outlined" Min="1" Max="365" />
-            <MudSelect @bind-Value="_form.Status" Label="Status" Variant="Variant.Outlined">
-                @foreach (TripStatus s in Enum.GetValues(typeof(TripStatus)))
-                {
-                    <MudSelectItem Value="s">@s</MudSelectItem>
-                }
-            </MudSelect>
-        </MudStack>
-    </DialogContent>
-    <DialogActions>
-        <MudButton OnClick="() => _dialogOpen = false">Cancel</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveTrip">Save</MudButton>
-    </DialogActions>
-</MudDialog>
+
 
 @code {
-    private List<TripDto>?  _trips;
-    private bool            _dialogOpen;
-    private int?            _editingId;
-    private string          _adminUserId = "";
-
-    private CreateTripDto _form = new() { Name = "", Destination = "", CreatedBy = "" };
+    private List<TripDto>? _trips;
+    private string         _adminUserId = "";
 
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         _adminUserId  = authState.User.FindFirst(
             System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
-
         await LoadTrips();
     }
 
     private async Task LoadTrips()
-        => _trips = await Http.GetFromJsonAsync<List<TripDto>>("/api/trips");
+        => _trips = (await TripRepository.GetAllAsync()).ToList();
 
-    private void OpenCreateDialog()
+    private async Task OpenCreateDialog()
     {
-        _editingId  = null;
-        _form       = new CreateTripDto { Name = "", Destination = "", CreatedBy = _adminUserId };
-        _dialogOpen = true;
+        var form = new CreateTripDto { Name = "", Destination = "", CreatedBy = _adminUserId };
+        var parameters = new DialogParameters<AdminTripDialog>
+        {
+            { x => x.Title, "Add Trip" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminTripDialog>("Add Trip", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateTripDto dto })
+        {
+            dto.CreatedBy = _adminUserId;
+            await TripRepository.CreateAsync(dto);
+            Snackbar.Add("Trip created.", Severity.Success);
+            await LoadTrips();
+        }
     }
 
-    private void OpenEditDialog(TripDto trip)
+    private async Task OpenEditDialog(TripDto trip)
     {
-        _editingId = trip.Id;
-        _form = new CreateTripDto
+        var form = new CreateTripDto
         {
             Name         = trip.Name,
             Destination  = trip.Destination,
@@ -123,49 +106,36 @@ else
             Status       = trip.Status,
             CreatedBy    = trip.CreatedBy
         };
-        _dialogOpen = true;
-    }
-
-    private async Task SaveTrip()
-    {
-        HttpResponseMessage response;
-
-        if (_editingId is null)
+        var parameters = new DialogParameters<AdminTripDialog>
         {
-            _form.CreatedBy = _adminUserId;
-            response = await Http.PostAsJsonAsync("/api/trips", _form);
-        }
-        else
+            { x => x.Title, "Edit Trip" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminTripDialog>("Edit Trip", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateTripDto dto })
         {
             var update = new UpdateTripDto
             {
-                Name         = _form.Name,
-                Destination  = _form.Destination,
-                Description  = _form.Description,
-                ImageUrl     = _form.ImageUrl,
-                BasePrice    = _form.BasePrice,
-                DurationDays = _form.DurationDays,
-                Status       = _form.Status
+                Name         = dto.Name,
+                Destination  = dto.Destination,
+                Description  = dto.Description,
+                ImageUrl     = dto.ImageUrl,
+                BasePrice    = dto.BasePrice,
+                DurationDays = dto.DurationDays,
+                Status       = dto.Status
             };
-            response = await Http.PutAsJsonAsync($"/api/trips/{_editingId}", update);
-        }
-
-        if (response.IsSuccessStatusCode)
-        {
-            Snackbar.Add(_editingId is null ? "Trip created." : "Trip updated.", Severity.Success);
-            _dialogOpen = false;
+            var updated = await TripRepository.UpdateAsync(trip.Id, update);
+            if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
+            Snackbar.Add("Trip updated.", Severity.Success);
             await LoadTrips();
-        }
-        else
-        {
-            Snackbar.Add("Something went wrong.", Severity.Error);
         }
     }
 
     private async Task DeleteTrip(int id)
     {
-        var response = await Http.DeleteAsync($"/api/trips/{id}");
-        if (response.IsSuccessStatusCode)
+        var deleted = await TripRepository.DeleteAsync(id);
+        if (deleted)
         {
             Snackbar.Add("Trip deleted.", Severity.Success);
             await LoadTrips();

@@ -1,0 +1,65 @@
+@using TarvelAI.DTOs.Flight
+
+<MudDialog Width>
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="Form.FlightNumber"       Label="Flight Number"      Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.Airline"            Label="Airline"            Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.OriginAirport"      Label="Origin (IATA)"      Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.DestinationAirport" Label="Destination (IATA)" Variant="Variant.Outlined" />
+            <MudDatePicker @bind-Date="DepartureDateValue" Label="Departure Date" Variant="Variant.Outlined" />
+            <MudTimePicker @bind-Time="DepartureTimeValue" Label="Departure Time" Variant="Variant.Outlined" />
+            <MudDatePicker @bind-Date="ArrivalDateValue"   Label="Arrival Date"   Variant="Variant.Outlined" />
+            <MudTimePicker @bind-Time="ArrivalTimeValue"   Label="Arrival Time"   Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.ImageUrl"  Label="Image URL"      Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = "Flight";
+    [Parameter] public CreateFlightDto Form { get; set; } = new();
+
+    private DateTime? _departureDate;
+    private TimeSpan? _departureTime;
+    private DateTime? _arrivalDate;
+    private TimeSpan? _arrivalTime;
+
+    private DateTime? DepartureDateValue
+    {
+        get => _departureDate ??= (Form.DepartureTime != default ? Form.DepartureTime.Date : null);
+        set => _departureDate = value;
+    }
+    private TimeSpan? DepartureTimeValue
+    {
+        get => _departureTime ??= (Form.DepartureTime != default ? Form.DepartureTime.TimeOfDay : null);
+        set => _departureTime = value;
+    }
+    private DateTime? ArrivalDateValue
+    {
+        get => _arrivalDate ??= (Form.ArrivalTime != default ? Form.ArrivalTime.Date : null);
+        set => _arrivalDate = value;
+    }
+    private TimeSpan? ArrivalTimeValue
+    {
+        get => _arrivalTime ??= (Form.ArrivalTime != default ? Form.ArrivalTime.TimeOfDay : null);
+        set => _arrivalTime = value;
+    }
+
+    void Cancel() => MudDialog.Cancel();
+
+    void Submit()
+    {
+        Form.DepartureTime = (DepartureDateValue ?? DateTime.UtcNow).Date + (DepartureTimeValue ?? TimeSpan.Zero);
+        Form.ArrivalTime   = (ArrivalDateValue   ?? DateTime.UtcNow).Date + (ArrivalTimeValue   ?? TimeSpan.Zero);
+        MudDialog.Close(DialogResult.Ok(Form));
+    }
+}

@@ -1,9 +1,17 @@
 @page "/admin"
 @layout AdminLayout
 @rendermode InteractiveServer
+@inherits LayoutComponentBase
 @attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
-@inject HttpClient Http
+@using Microsoft.AspNetCore.Identity
+@using TarvelAI.Data
+@using TarvelAI.Repositories
+@inject IHotelRepository HotelRepository
+@inject IFlightRepository FlightRepository
+@inject ITripRepository TripRepository
+@inject AppDbContext Db
+@inject UserManager<IdentityUser> UserManager
 @inject ISnackbar Snackbar
 
 <PageTitle>Admin Dashboard</PageTitle>
@@ -67,29 +75,31 @@
 
     private async Task LoadCountsAsync()
     {
-        var hotels  = await Http.GetFromJsonAsync<List<object>>("/api/hotels");
-        var flights = await Http.GetFromJsonAsync<List<object>>("/api/flights");
-        var trips   = await Http.GetFromJsonAsync<List<object>>("/api/trips");
+        var hotels  = await HotelRepository.GetAllAsync();
+        var flights = await FlightRepository.GetAllAsync();
+        var trips   = await TripRepository.GetAllAsync();
 
-        _hotelCount  = hotels?.Count  ?? 0;
-        _flightCount = flights?.Count ?? 0;
-        _tripCount   = trips?.Count   ?? 0;
+        _hotelCount  = hotels?.Count()  ?? 0;
+        _flightCount = flights?.Count() ?? 0;
+        _tripCount   = trips?.Count()   ?? 0;
     }
 
     private async Task ReseedAsync()
     {
         _reseeding = true;
-        var response = await Http.PostAsync("/api/admin/reseed", null);
-        _reseeding = false;
-
-        if (response.IsSuccessStatusCode)
+        try
         {
+            await TripSeeder.ResetAndSeedAsync(Db, UserManager);
             Snackbar.Add("Data reseeded successfully.", Severity.Success);
             await LoadCountsAsync();
         }
-        else
+        catch
         {
             Snackbar.Add("Reseed failed.", Severity.Error);
+        }
+        finally
+        {
+            _reseeding = false;
         }
     }
 }
