@@ -1,11 +1,7 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MudBlazor.Services;
-using TarvelAI.Auth;
-using TarvelAI.Components;
 using TarvelAI.Data;
 using TarvelAI.Endpoints;
 using TarvelAI.Hubs;
@@ -88,9 +84,13 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapAuthEndpoints();
 app.MapHotelEndpoints();
+app.MapAiEndpoints();
 app.MapFlightEndpoints();
 app.MapTripEndpoints();
 app.MapRazorPages();
+
+
+
 
 // ── Dev-only: wipe and re-seed all data ───────────────────────────────────────
 if (app.Environment.IsDevelopment())
@@ -106,7 +106,9 @@ if (app.Environment.IsDevelopment())
 app.MapHub<TravelHub>("/hubs/travel");
 
 // ── Blazor ────────────────────────────────────────────────────────────────────
-app.MapRazorComponents<App>()
+
+// Use the correct App component for Blazor Server
+app.MapRazorComponents<TarvelAI.Components.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();
