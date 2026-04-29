@@ -1,0 +1,141 @@
+@page "/admin/flights"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using TarvelAI.DTOs.Flight
+@using TarvelAI.Repositories
+@inject IFlightRepository FlightRepository
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+
+
+<PageTitle>Admin - Flights</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Flights</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog">
+        Add Flight
+    </MudButton>
+</MudStack>
+
+@if (_flights is null)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else
+{
+    <MudTable Items="_flights" Hover Striped Elevation="2" Style="border-radius:12px;">
+        <HeaderContent>
+            <MudTh>Flight No.</MudTh>
+            <MudTh>Airline</MudTh>
+            <MudTh>From</MudTh>
+            <MudTh>To</MudTh>
+            <MudTh>Departure</MudTh>
+            <MudTh>Arrival</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.FlightNumber</MudTd>
+            <MudTd>@context.Airline</MudTd>
+            <MudTd>@context.OriginAirport</MudTd>
+            <MudTd>@context.DestinationAirport</MudTd>
+            <MudTd>@context.DepartureTime.ToString("dd MMM yyyy HH:mm")</MudTd>
+            <MudTd>@context.ArrivalTime.ToString("dd MMM yyyy HH:mm")</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                               OnClick="() => OpenEditDialog(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="() => DeleteFlight(context.Id)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<FlightDto>? _flights;
+
+    protected override async Task OnInitializedAsync() => await LoadFlights();
+
+    private async Task LoadFlights()
+        => _flights = (await FlightRepository.GetAllAsync()).ToList();
+
+    private async Task OpenCreateDialog()
+    {
+        var form = new CreateFlightDto();
+        var parameters = new DialogParameters<AdminFlightDialog>
+        {
+            { x => x.Title, "Add Flight" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminFlightDialog>("Add Flight", parameters);
+        var result = await dialog.Result;
+
+        // FIX: explicit cast instead of pattern matching on Data
+        if (result is { Canceled: false } && result.Data is CreateFlightDto dto)
+        {
+            await FlightRepository.CreateAsync(dto);
+            Snackbar.Add("Flight created.", Severity.Success);
+            await LoadFlights();
+        }
+    }
+
+    private async Task OpenEditDialog(FlightDto flight)
+    {
+        var form = new CreateFlightDto
+        {
+            FlightNumber = flight.FlightNumber,
+            Airline = flight.Airline,
+            OriginAirport = flight.OriginAirport,
+            DestinationAirport = flight.DestinationAirport,
+            DepartureTime = flight.DepartureTime,
+            ArrivalTime = flight.ArrivalTime,
+            ImageUrl = ""
+        };
+        var parameters = new DialogParameters<AdminFlightDialog>
+        {
+            { x => x.Title, "Edit Flight" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminFlightDialog>("Edit Flight", parameters);
+        Console.WriteLine("Dialog shown, waiting for result...");
+        var result = await dialog.Result;
+
+        // FIX: explicit cast instead of pattern matching on Data
+        if (result is { Canceled: false } && result.Data is CreateFlightDto dto)
+        {
+            var update = new UpdateFlightDto
+            {
+                FlightNumber = dto.FlightNumber,
+                Airline = dto.Airline,
+                OriginAirport = dto.OriginAirport,
+                DestinationAirport = dto.DestinationAirport,
+                DepartureTime = dto.DepartureTime,
+                ArrivalTime = dto.ArrivalTime,
+                ImageUrl = dto.ImageUrl
+            };
+            var updated = await FlightRepository.UpdateAsync(flight.Id, update);
+            if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
+            Snackbar.Add("Flight updated.", Severity.Success);
+            await LoadFlights();
+        }
+    }
+
+    private async Task DeleteFlight(int id)
+    {
+        var deleted = await FlightRepository.DeleteAsync(id);
+        if (deleted)
+        {
+            Snackbar.Add("Flight deleted.", Severity.Success);
+            await LoadFlights();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+}

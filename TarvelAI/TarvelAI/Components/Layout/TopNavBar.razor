@@ -21,6 +21,14 @@
         <AuthorizeView>
             <Authorized>
                 <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    <AuthorizeView Roles="Admin">
+                        <Authorized Context="adminContext">
+                            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/admin"
+                                       Style="border-radius: 8px; text-transform: none; font-weight: 600;">
+                                Admin Dashboard
+                            </MudButton>
+                        </Authorized>
+                    </AuthorizeView>
                     <MudText Typo="Typo.body2" Style="color: #5a6a7a;">@_userName</MudText>
                     <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                                OnClick="HandleLogout"

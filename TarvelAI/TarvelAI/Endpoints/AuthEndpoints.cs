@@ -26,11 +26,11 @@ namespace TarvelAI.Endpoints
                 return Results.Redirect("/login?error=invalid");
             }).DisableAntiforgery();
 
-            app.MapPost("/account/logout", async (SignInManager<IdentityUser> signInManager) =>
+            app.MapGet("/account/logout", async (SignInManager<IdentityUser> signInManager) =>
             {
                 await signInManager.SignOutAsync();
                 return Results.Redirect("/");
-            }).DisableAntiforgery();
+            });
 
             app.MapPost("/api/auth/register", async (
                 RegisterRequest req,

@@ -9,12 +9,17 @@ using TarvelAI.Components;
 using TarvelAI.Data;
 using TarvelAI.Endpoints;
 using TarvelAI.Hubs;
+using TarvelAI.Repositories;
+
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ── Blazor Server (no WASM) ───────────────────────────────────────────────────
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddValidation();
 
 builder.Services.AddRazorPages();
 builder.Services.AddMudServices();
@@ -46,12 +51,25 @@ builder.Services.ConfigureApplicationCookie(o =>
     o.LogoutPath = "/logout";
 });
 
+// ── Repositories ──────────────────────────────────────────────────────────────
+builder.Services.AddScoped<IHotelRepository, HotelRepository>();
+builder.Services.AddScoped<IFlightRepository, FlightRepository>();
+builder.Services.AddScoped<ITripRepository, TripRepository>();
+
+// ── Authorization policies ────────────────────────────────────────────────────
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy("Admin", policy => policy.RequireRole("Admin"));
+
 var app = builder.Build();
 
 using(var scope = app.Services.CreateScope())
 {
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var roleManager    = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager    = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+    var db             = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
     await RoleSeeder.SeedAsync(roleManager);
+    await TripSeeder.SeedAsync(db, userManager);
 }
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
@@ -69,7 +87,20 @@ app.UseAntiforgery();
 
 app.MapStaticAssets();
 app.MapAuthEndpoints();
+app.MapHotelEndpoints();
+app.MapFlightEndpoints();
+app.MapTripEndpoints();
 app.MapRazorPages();
+
+// ── Dev-only: wipe and re-seed all data ───────────────────────────────────────
+if (app.Environment.IsDevelopment())
+{
+    app.MapPost("/api/admin/reseed", async (AppDbContext db, UserManager<IdentityUser> um) =>
+    {
+        await TripSeeder.ResetAndSeedAsync(db, um);
+        return Results.Ok("Reseeded successfully.");
+    }).RequireAuthorization("Admin");
+}
 
 // ── SignalR hub ───────────────────────────────────────────────────────────────
 app.MapHub<TravelHub>("/hubs/travel");

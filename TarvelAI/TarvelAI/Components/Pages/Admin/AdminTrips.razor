@@ -1,0 +1,157 @@
+@page "/admin/trips"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+@using TarvelAI.Repositories
+@inject ITripRepository TripRepository
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IDialogService DialogService
+
+<PageTitle>Admin - Trips</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Trips</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog">
+        Add Trip
+    </MudButton>
+</MudStack>
+
+@if (_trips is null)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else
+{
+    <MudTable Items="_trips" Hover Striped Elevation="2" Style="border-radius:12px;">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>Destination</MudTh>
+            <MudTh>Duration</MudTh>
+            <MudTh>Price</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.Destination</MudTd>
+            <MudTd>@context.DurationDays days</MudTd>
+            <MudTd>$@context.BasePrice.ToString("N2")</MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                               OnClick="() => OpenEditDialog(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="() => DeleteTrip(context.Id)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+
+
+@code {
+    private List<TripDto>? _trips;
+    private string         _adminUserId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _adminUserId  = authState.User.FindFirst(
+            System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+        await LoadTrips();
+    }
+
+    private async Task LoadTrips()
+        => _trips = (await TripRepository.GetAllAsync()).ToList();
+
+    private async Task OpenCreateDialog()
+    {
+        var form = new CreateTripDto { Name = "", Destination = "", CreatedBy = _adminUserId };
+        var parameters = new DialogParameters<AdminTripDialog>
+        {
+            { x => x.Title, "Add Trip" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminTripDialog>("Add Trip", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateTripDto dto })
+        {
+            dto.CreatedBy = _adminUserId;
+            await TripRepository.CreateAsync(dto);
+            Snackbar.Add("Trip created.", Severity.Success);
+            await LoadTrips();
+        }
+    }
+
+    private async Task OpenEditDialog(TripDto trip)
+    {
+        var form = new CreateTripDto
+        {
+            Name         = trip.Name,
+            Destination  = trip.Destination,
+            Description  = trip.Description,
+            ImageUrl     = trip.ImageUrl,
+            BasePrice    = trip.BasePrice,
+            DurationDays = trip.DurationDays,
+            Status       = trip.Status,
+            CreatedBy    = trip.CreatedBy
+        };
+        var parameters = new DialogParameters<AdminTripDialog>
+        {
+            { x => x.Title, "Edit Trip" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminTripDialog>("Edit Trip", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateTripDto dto })
+        {
+            var update = new UpdateTripDto
+            {
+                Name         = dto.Name,
+                Destination  = dto.Destination,
+                Description  = dto.Description,
+                ImageUrl     = dto.ImageUrl,
+                BasePrice    = dto.BasePrice,
+                DurationDays = dto.DurationDays,
+                Status       = dto.Status
+            };
+            var updated = await TripRepository.UpdateAsync(trip.Id, update);
+            if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
+            Snackbar.Add("Trip updated.", Severity.Success);
+            await LoadTrips();
+        }
+    }
+
+    private async Task DeleteTrip(int id)
+    {
+        var deleted = await TripRepository.DeleteAsync(id);
+        if (deleted)
+        {
+            Snackbar.Add("Trip deleted.", Severity.Success);
+            await LoadTrips();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+
+    private static Color StatusColor(TripStatus status) => status switch
+    {
+        TripStatus.Planning   => Color.Default,
+        TripStatus.Confirmed  => Color.Primary,
+        TripStatus.Completed  => Color.Success,
+        TripStatus.Cancelled  => Color.Error,
+        _                     => Color.Default
+    };
+}

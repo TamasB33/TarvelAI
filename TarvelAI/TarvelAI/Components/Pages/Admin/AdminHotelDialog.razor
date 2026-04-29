@@ -1,0 +1,32 @@
+@using TarvelAI.DTOs.Hotel
+
+<MudDialog MaxWidth="false"
+           FullWidth="true"
+           Style="width:1200px;max-width:98vw;">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@Title</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="Form.Name"     Label="Name"    Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.Address"  Label="Address" Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.City"     Label="City"    Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="Form.Country"  Label="Country" Variant="Variant.Outlined" />
+            <MudNumericField @bind-Value="Form.Rating" Label="Rating (0-5)" Variant="Variant.Outlined" Min="0" Max="5" Step="0.1" />
+            <MudTextField @bind-Value="Form.ImageUrl" Label="Image URL" Variant="Variant.Outlined" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Submit">Save</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public string Title { get; set; } = "Hotel";
+    [Parameter] public CreateHotelDto Form { get; set; } = new();
+
+    void Cancel() => MudDialog.Cancel();
+    void Submit() => MudDialog.Close(DialogResult.Ok(Form));
+}

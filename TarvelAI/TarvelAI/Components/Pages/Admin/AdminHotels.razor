@@ -1,0 +1,126 @@
+@page "/admin/hotels"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using TarvelAI.DTOs.Hotel
+@using TarvelAI.Repositories
+@inject IHotelRepository HotelRepository
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Admin - Hotels</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Hotels</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog">
+        Add Hotel
+    </MudButton>
+</MudStack>
+
+@if (_hotels is null)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else
+{
+    <MudTable Items="_hotels" Hover Striped Elevation="2" Style="border-radius:12px;">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+            <MudTh>City</MudTh>
+            <MudTh>Country</MudTh>
+            <MudTh>Rating</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Name</MudTd>
+            <MudTd>@context.City</MudTd>
+            <MudTd>@context.Country</MudTd>
+            <MudTd>@context.Rating ⭐</MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
+                               OnClick="() => OpenEditDialog(context)" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                               OnClick="() => DeleteHotel(context.Id)" />
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+
+
+@code {
+    private List<HotelDto>? _hotels;
+
+    protected override async Task OnInitializedAsync() => await LoadHotels();
+
+    private async Task LoadHotels()
+        => _hotels = (await HotelRepository.GetAllAsync()).ToList();
+
+    private async Task OpenCreateDialog()
+    {
+        var form = new CreateHotelDto();
+        var parameters = new DialogParameters<AdminHotelDialog>
+        {
+            { x => x.Title, "Add Hotel" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminHotelDialog>("Add Hotel", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateHotelDto dto })
+        {
+            await HotelRepository.CreateAsync(dto);
+            Snackbar.Add("Hotel created.", Severity.Success);
+            await LoadHotels();
+        }
+    }
+
+    private async Task OpenEditDialog(HotelDto hotel)
+    {
+        var form = new CreateHotelDto
+        {
+            Name     = hotel.Name,
+            Address  = hotel.Address,
+            City     = hotel.City,
+            Country  = hotel.Country,
+            Rating   = hotel.Rating,
+            ImageUrl = hotel.ImageUrl
+        };
+        var parameters = new DialogParameters<AdminHotelDialog>
+        {
+            { x => x.Title, "Edit Hotel" },
+            { x => x.Form,  form }
+        };
+        var dialog = await DialogService.ShowAsync<AdminHotelDialog>("Edit Hotel", parameters);
+        var result = await dialog.Result;
+        if (result is { Canceled: false, Data: CreateHotelDto dto })
+        {
+            var update = new UpdateHotelDto
+            {
+                Name = dto.Name, Address = dto.Address, City = dto.City,
+                Country = dto.Country, Rating = dto.Rating, ImageUrl = dto.ImageUrl
+            };
+            var updated = await HotelRepository.UpdateAsync(hotel.Id, update);
+            if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
+            Snackbar.Add("Hotel updated.", Severity.Success);
+            await LoadHotels();
+        }
+    }
+
+    private async Task DeleteHotel(int id)
+    {
+        var deleted = await HotelRepository.DeleteAsync(id);
+        if (deleted)
+        {
+            Snackbar.Add("Hotel deleted.", Severity.Success);
+            await LoadHotels();
+        }
+        else
+        {
+            Snackbar.Add("Something went wrong.", Severity.Error);
+        }
+    }
+}
