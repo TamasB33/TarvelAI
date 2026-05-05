@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: tarvelai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: travelai
+      POSTGRES_USER: travelai
+      POSTGRES_PASSWORD: travelai123
+    ports:
+      - "5432:5432"
+    volumes:
+      - tarvelai-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travelai -d travelai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  tarvelai-postgres-data:
