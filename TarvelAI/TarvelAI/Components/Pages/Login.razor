@@ -17,6 +17,7 @@
             }
 
             <form method="post" action="/account/login">
+                <AntiforgeryToken />
                 <MudTextField T="string" name="email" Label="Email"
                               Variant="Variant.Outlined" InputType="InputType.Email"
                               Class="mb-4" />

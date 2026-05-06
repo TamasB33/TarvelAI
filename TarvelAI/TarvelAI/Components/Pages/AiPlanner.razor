@@ -1,4 +1,3 @@
-
 @using TarvelAI.DTOs.AI
 @inject HttpClient Http
 
@@ -10,55 +9,83 @@
             AI Travel Planner
         </MudText>
         <MudText Typo="Typo.body1" Color="Color.Secondary">
-            Answer a few questions and get a personalized travel recommendation!
+            Answer adaptive AI questions and get personalized trip recommendations.
         </MudText>
     </MudStack>
 
-    <MudStepper @bind-ActiveStep="_step">
-        <MudStep Label="Weather">
-            <MudSelect @bind-Value="_prefs.Weather" Label="Preferred Weather" Required="true">
-                <MudSelectItem Value="Warm">Warm</MudSelectItem>
-                <MudSelectItem Value="Mild">Mild</MudSelectItem>
-                <MudSelectItem Value="Cold">Cold</MudSelectItem>
-                <MudSelectItem Value="Any">Any</MudSelectItem>
-            </MudSelect>
-        </MudStep>
-        <MudStep Label="Location Type">
-            <MudRadioGroup @bind-SelectedOption="_prefs.LocationType">
-                <MudRadio Option="City"    Label="City" />
-                <MudRadio Option="Village" Label="Village" />
-                <MudRadio Option="Any"     Label="Any" />
-            </MudRadioGroup>
-        </MudStep>
-        <MudStep Label="Budget">
-            <MudNumericField @bind-Value="_prefs.Budget" Label="Budget ($)" Min="0" Required="true" />
-        </MudStep>
-        <MudStep Label="Destination Type">
-            <MudSelect @bind-Value="_prefs.DestinationType" Label="Destination Type" Required="true">
-                <MudSelectItem Value="Beach">Beach</MudSelectItem>
-                <MudSelectItem Value="Mountain">Mountain</MudSelectItem>
-                <MudSelectItem Value="City Break">City Break</MudSelectItem>
-                <MudSelectItem Value="Countryside">Countryside</MudSelectItem>
-                <MudSelectItem Value="Any">Any</MudSelectItem>
-            </MudSelect>
-        </MudStep>
-        <MudStep Label="Dates">
-            <MudDateRangePicker @bind-DateRange="_dateRange" Label="Travel Dates" Required="true" />
-        </MudStep>
-        <MudStep Label="Review & Submit">
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GetRecommendation" Disabled="_loading">
-                Get Recommendation
-            </MudButton>
-        </MudStep>
-    </MudStepper>
-
-    @if (_recommendation != null)
+    @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <MudPaper Class="mt-6 pa-4">
-            <MudText Typo="Typo.h6">AI Recommendation:</MudText>
-            <MudText>@_recommendation</MudText>
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">@_error</MudAlert>
+    }
+
+    @if (_currentQuestion is null && _recommendations.Count == 0)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Start a new adaptive questionnaire.
+            </MudText>
+            <MudTextField @bind-Value="_goal" Label="Optional travel goal" Placeholder="e.g., relaxing nature trip with moderate budget" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartQuestionnaire" Disabled="_loading" Class="mt-3">
+                Start AI Questionnaire
+            </MudButton>
         </MudPaper>
     }
+
+    @if (_currentQuestion is not null)
+    {
+        <MudPaper Class="mt-6 pa-4">
+            <MudText Typo="Typo.h6">Question @_questionNumber</MudText>
+            <MudText Typo="Typo.body1" Class="mb-4">@_currentQuestion.QuestionText</MudText>
+
+            @if (_currentQuestion.AllowsMultiple)
+            {
+                @foreach (var option in _currentQuestion.Options)
+                {
+                    <MudCheckBox @bind-Value="_multiSelections[option.Id]" Label="@option.Label" />
+                }
+            }
+            else
+            {
+                <MudRadioGroup T="string" @bind-Value="_singleSelectionId">
+                    @foreach (var option in _currentQuestion.Options)
+                    {
+                        <MudRadio T="string" Value="@option.Id" Label="@option.Label" />
+                    }
+                </MudRadioGroup>
+            }
+
+            <MudStack Row="true" Class="mt-4" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAnswer" Disabled="_loading">
+                    Next
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetQuestionnaire" Disabled="_loading">
+                    Restart
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (_recommendations.Count > 0)
+    {
+        <MudPaper Class="mt-6 pa-4">
+            <MudText Typo="Typo.h6" Class="mb-4">Recommended Trips</MudText>
+            <MudStack Spacing="3">
+                @foreach (var rec in _recommendations)
+                {
+                    <MudPaper Class="pa-3">
+                        <MudText Typo="Typo.subtitle1">@rec.Name (@rec.Destination)</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@rec.Description</MudText>
+                        <MudText Typo="Typo.body2">Price: @rec.BasePrice.ToString("0.##") | Duration: @rec.DurationDays days</MudText>
+                        <MudText Typo="Typo.caption">Match: @rec.MatchReason (score: @rec.MatchScore.ToString("0.##"))</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetQuestionnaire" Class="mt-4">
+                Start New Questionnaire
+            </MudButton>
+        </MudPaper>
+    }
+
     @if (_loading)
     {
         <MudProgressLinear Indeterminate Color="Color.Primary" Class="mt-4" />
@@ -66,33 +93,125 @@
 </MudContainer>
 
 @code {
-    private int _step = 0;
-    private ConversationPreferences _prefs = new();
-    private MudBlazor.DateRange _dateRange = new();
-    private string? _recommendation;
-    private bool _loading = false;
+    private string? _sessionId;
+    private string? _goal;
+    private int _questionNumber;
+    private string? _singleSelectionId;
+    private string? _error;
+    private bool _loading;
+    private AiQuestionNodeDto? _currentQuestion;
+    private Dictionary<string, bool> _multiSelections = new();
+    private List<AiRecommendationDto> _recommendations = [];
 
-    private async Task GetRecommendation()
+    private async Task StartQuestionnaire()
     {
-        _prefs.StartDate = _dateRange.Start;
-        _prefs.EndDate = _dateRange.End;
+        _error = null;
         _loading = true;
-
-        // Build conversation as expected by backend
-        var conversation = new List<ConversationTurn>
+        try
         {
-            new() { Role = "User", Text = _prefs.Weather ?? "" },
-            new() { Role = "User", Text = _prefs.LocationType ?? "" },
-            new() { Role = "User", Text = _prefs.Budget?.ToString() ?? "" },
-            new() { Role = "User", Text = _prefs.DestinationType ?? "" },
-            new() { Role = "User", Text = $"{_prefs.StartDate:yyyy-MM-dd} to {_prefs.EndDate:yyyy-MM-dd}" }
-        };
+            var response = await Http.PostAsJsonAsync("/api/ai/questionnaire/start", new AiQuestionnaireStartRequest { Goal = _goal });
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "Could not start questionnaire.";
+                return;
+            }
 
-        var response = await Http.PostAsJsonAsync("/api/ai/converse", conversation);
-        var aiTurn = await response.Content.ReadFromJsonAsync<ConversationTurn>();
-        _recommendation = aiTurn?.Text;
+            var payload = await response.Content.ReadFromJsonAsync<AiQuestionnaireResponseDto>();
+            if (payload?.Question is null)
+            {
+                _error = "No question returned by AI.";
+                return;
+            }
+
+            _sessionId = payload.SessionId;
+            _currentQuestion = payload.Question;
+            _questionNumber = 1;
+            _singleSelectionId = null;
+            _multiSelections = _currentQuestion.Options.ToDictionary(x => x.Id, _ => false);
+            _recommendations = [];
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SubmitAnswer()
+    {
+        if (_currentQuestion is null || string.IsNullOrWhiteSpace(_sessionId))
+        {
+            return;
+        }
+
+        _error = null;
+        _loading = true;
+        try
+        {
+            var selected = _currentQuestion.AllowsMultiple
+                ? _multiSelections.Where(kv => kv.Value).Select(kv => kv.Key).ToList()
+                : string.IsNullOrWhiteSpace(_singleSelectionId) ? [] : [_singleSelectionId];
+
+            if (selected.Count == 0)
+            {
+                _error = "Please choose at least one option.";
+                return;
+            }
+
+            var request = new AiQuestionnaireAnswerRequest
+            {
+                SessionId = _sessionId,
+                QuestionId = _currentQuestion.QuestionId,
+                SelectedOptionIds = selected
+            };
+
+            var response = await Http.PostAsJsonAsync("/api/ai/questionnaire/answer", request);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "Could not submit answer.";
+                return;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<AiQuestionnaireResponseDto>();
+            if (payload is null)
+            {
+                _error = "Empty response from AI endpoint.";
+                return;
+            }
+
+            if (payload.IsComplete)
+            {
+                _recommendations = payload.Recommendations;
+                _currentQuestion = null;
+                return;
+            }
+
+            if (payload.Question is null)
+            {
+                _error = "Next question missing from response.";
+                return;
+            }
+
+            _questionNumber++;
+            _currentQuestion = payload.Question;
+            _singleSelectionId = null;
+            _multiSelections = _currentQuestion.Options.ToDictionary(x => x.Id, _ => false);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ResetQuestionnaire()
+    {
+        _sessionId = null;
+        _goal = null;
+        _questionNumber = 0;
+        _singleSelectionId = null;
+        _error = null;
         _loading = false;
+        _currentQuestion = null;
+        _multiSelections = [];
+        _recommendations = [];
     }
 }
-
-

@@ -6,6 +6,7 @@ using TarvelAI.Data;
 using TarvelAI.Endpoints;
 using TarvelAI.Hubs;
 using TarvelAI.Repositories;
+using TarvelAI.Services;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
 
@@ -51,6 +52,8 @@ builder.Services.ConfigureApplicationCookie(o =>
 builder.Services.AddScoped<IHotelRepository, HotelRepository>();
 builder.Services.AddScoped<IFlightRepository, FlightRepository>();
 builder.Services.AddScoped<ITripRepository, TripRepository>();
+builder.Services.AddSingleton<IAiQuestionnaireService, AiQuestionnaireService>();
+builder.Services.AddHttpClient("gemini").SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
 // ── Authorization policies ────────────────────────────────────────────────────
 builder.Services.AddAuthorizationBuilder()
