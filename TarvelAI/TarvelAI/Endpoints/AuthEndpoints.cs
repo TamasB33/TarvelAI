@@ -22,7 +22,7 @@ namespace TarvelAI.Endpoints
                     return Results.Redirect("/login?error=locked");
 
                 return Results.Redirect("/login?error=invalid");
-            });
+            }).DisableAntiforgery();
 
             app.MapPost("/account/register", async (
                 [FromForm] string email,
@@ -56,7 +56,7 @@ namespace TarvelAI.Endpoints
                 }
 
                 return Results.Redirect("/login?registered=1");
-            });
+            }).DisableAntiforgery();
 
             app.MapPost("/account/logout", async (SignInManager<IdentityUser> signInManager) =>
             {

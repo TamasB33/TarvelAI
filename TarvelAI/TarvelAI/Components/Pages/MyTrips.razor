@@ -1,0 +1,292 @@
+@page "/my-trips"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Net
+@using System.Net.Http.Json
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<PageTitle>My Trips - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8">
+    <MudStack Spacing="4">
+        <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+            <div>
+                <MudText Typo="Typo.h4" Style="font-weight:700; color:#0F2A43;">Welcome back, @_displayName.</MudText>
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Track your ongoing adventures and revisit past journeys.</MudText>
+            </div>
+        </MudStack>
+
+        @if (!string.IsNullOrWhiteSpace(_error))
+        {
+            <MudAlert Severity="Severity.Error" Variant="Variant.Outlined">@_error</MudAlert>
+        }
+
+        @if (_isLoading)
+        {
+            <MudGrid>
+                @for (var i = 0; i < 4; i++)
+                {
+                    <MudItem xs="12" sm="6" md="3">
+                        <MudSkeleton Height="90px" />
+                    </MudItem>
+                }
+                <MudItem xs="12" md="8">
+                    <MudSkeleton Height="260px" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudSkeleton Height="260px" />
+                </MudItem>
+            </MudGrid>
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px;">
+                        <MudText Typo="Typo.caption">Total Trips</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_myTrips.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px;">
+                        <MudText Typo="Typo.caption">Ongoing Trips</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_ongoingTrips.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px;">
+                        <MudText Typo="Typo.caption">Past Trips</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_pastTrips.Count</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6" md="3">
+                    <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px;">
+                        <MudText Typo="Typo.caption">Booked Budget</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_myTrips.Sum(t => t.BasePrice).ToString("C0")</MudText>
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="8">
+                    <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px;">
+                        <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight:700;">Upcoming Trip</MudText>
+                        @if (_upcomingTrip is null)
+                        {
+                            <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No upcoming trips yet. Book one from Explore.</MudAlert>
+                        }
+                        else
+                        {
+                            <MudCard Elevation="0" Style="border:1px solid #EDF2F7;">
+                                <MudCardMedia Image="@SafeImage(_upcomingTrip.ImageUrl)" Height="220" />
+                                <MudCardContent>
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.h6" Style="font-weight:700;">@_upcomingTrip.Name</MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(_upcomingTrip.Status)">@_upcomingTrip.Status</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_upcomingTrip.Destination</MudText>
+                                    <MudText Typo="Typo.body2" Class="mt-2">@_upcomingTrip.Description</MudText>
+                                    <MudStack Row Spacing="2" Class="mt-3">
+                                        <MudChip T="string" Variant="Variant.Outlined">Booked @ToRelativeDate(_upcomingTrip.BookedAtUtc)</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@_upcomingTrip.DurationDays days</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@_upcomingTrip.HotelBookingsCount hotel bookings</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@_upcomingTrip.FlightBookingsCount flight bookings</MudChip>
+                                    </MudStack>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@($"/trip/{_upcomingTrip.Id}")">View details</MudButton>
+                                    <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => UnbookAsync(_upcomingTrip.Id))">Unbook</MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        }
+                    </MudPaper>
+                </MudItem>
+
+                <MudItem xs="12" md="4">
+                    <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px; height:100%;">
+                        <MudText Typo="Typo.h6" Style="font-weight:700;">Trip Snapshot</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">A quick view of your travel activity.</MudText>
+                        <MudDivider Class="my-2" />
+                        <MudText Typo="Typo.body2">Planned/Confirmed: @_ongoingTrips.Count</MudText>
+                        <MudText Typo="Typo.body2">Completed/Cancelled: @_pastTrips.Count</MudText>
+                        <MudText Typo="Typo.body2">Bookings with hotels: @_myTrips.Count(t => t.HotelBookingsCount > 0)</MudText>
+                        <MudText Typo="Typo.body2">Bookings with flights: @_myTrips.Count(t => t.FlightBookingsCount > 0)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3" Style="font-weight:700;">Ongoing Trips</MudText>
+            @if (_ongoingTrips.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No ongoing trips right now.</MudAlert>
+            }
+            else
+            {
+                <MudGrid>
+                    @foreach (var trip in _ongoingTrips)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudCard Elevation="0" Style="border:1px solid #EDF2F7;">
+                                <MudCardContent>
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:700;">@trip.Name</MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(trip.Status)">@trip.Status</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@trip.Destination</MudText>
+                                    <MudText Typo="Typo.caption" Class="mt-1">Booked @ToRelativeDate(trip.BookedAtUtc)</MudText>
+                                    <MudStack Row Spacing="1" Class="mt-2">
+                                        <MudChip T="string" Variant="Variant.Outlined">@($"{trip.DurationDays} days")</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@($"{trip.HotelBookingsCount} hotels")</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@($"{trip.FlightBookingsCount} flights")</MudChip>
+                                    </MudStack>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Color="Color.Primary" Variant="Variant.Text" Href="@($"/trip/{trip.Id}")">View details</MudButton>
+                                    <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => UnbookAsync(trip.Id))">Unbook</MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+
+            <MudText Typo="Typo.h6" Class="mt-6 mb-3" Style="font-weight:700;">Past Trips</MudText>
+            @if (_pastTrips.Count == 0)
+            {
+                <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No past trips yet.</MudAlert>
+            }
+            else
+            {
+                <MudGrid>
+                    @foreach (var trip in _pastTrips)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudCard Elevation="0" Style="border:1px solid #EDF2F7;">
+                                <MudCardContent>
+                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:700;">@trip.Name</MudText>
+                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(trip.Status)">@trip.Status</MudChip>
+                                    </MudStack>
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@trip.Destination</MudText>
+                                    <MudText Typo="Typo.caption" Class="mt-1">Booked @ToRelativeDate(trip.BookedAtUtc)</MudText>
+                                    <MudStack Row Spacing="1" Class="mt-2">
+                                        <MudChip T="string" Variant="Variant.Outlined">@($"{trip.DurationDays} days")</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@($"{trip.HotelBookingsCount} hotels")</MudChip>
+                                        <MudChip T="string" Variant="Variant.Outlined">@($"{trip.FlightBookingsCount} flights")</MudChip>
+                                    </MudStack>
+                                </MudCardContent>
+                                <MudCardActions>
+                                    <MudButton Color="Color.Primary" Variant="Variant.Text" Href="@($"/trip/{trip.Id}")">View details</MudButton>
+                                    <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => UnbookAsync(trip.Id))">Unbook</MudButton>
+                                </MudCardActions>
+                            </MudCard>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+        }
+    </MudStack>
+</MudContainer>
+
+@code {
+    private bool _isLoading = true;
+    private string? _error;
+    private string _displayName = "traveler";
+    private List<MyTripDto> _myTrips = [];
+    private List<MyTripDto> _ongoingTrips = [];
+    private List<MyTripDto> _pastTrips = [];
+    private MyTripDto? _upcomingTrip;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _displayName = state.User.Identity?.Name ?? "traveler";
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _isLoading = true;
+        _error = null;
+
+        try
+        {
+            var response = await Http.GetAsync("/api/trips/my");
+            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            {
+                Navigation.NavigateTo("/login");
+                return;
+            }
+
+            response.EnsureSuccessStatusCode();
+            var result = await response.Content.ReadFromJsonAsync<List<MyTripDto>>();
+            _myTrips = result ?? [];
+
+            _ongoingTrips = _myTrips
+                .Where(t => t.Status is TripStatus.Planning or TripStatus.Confirmed)
+                .OrderByDescending(t => t.BookedAtUtc)
+                .ToList();
+
+            _pastTrips = _myTrips
+                .Where(t => t.Status is TripStatus.Completed or TripStatus.Cancelled)
+                .OrderByDescending(t => t.BookedAtUtc)
+                .ToList();
+
+            _upcomingTrip = _ongoingTrips.FirstOrDefault() ?? _myTrips.OrderByDescending(t => t.BookedAtUtc).FirstOrDefault();
+        }
+        catch
+        {
+            _error = "Could not load your trips right now. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task UnbookAsync(int tripId)
+    {
+        _error = null;
+        var response = await Http.DeleteAsync($"/api/trips/{tripId}/book");
+        if (!response.IsSuccessStatusCode)
+        {
+            _error = "Could not unbook this trip. Please try again.";
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private static string SafeImage(string? url)
+        => string.IsNullOrWhiteSpace(url)
+            ? "https://images.unsplash.com/photo-1488085061387-422e29b40080?w=1200"
+            : url;
+
+    private static Color StatusColor(TripStatus status) => status switch
+    {
+        TripStatus.Confirmed => Color.Success,
+        TripStatus.Planning => Color.Info,
+        TripStatus.Completed => Color.Primary,
+        TripStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+
+    private static string ToRelativeDate(DateTime utcDate)
+    {
+        var span = DateTime.UtcNow - utcDate;
+        if (span.TotalDays < 1) return "today";
+        if (span.TotalDays < 2) return "yesterday";
+        if (span.TotalDays < 30) return $"{(int)span.TotalDays} days ago";
+        return utcDate.ToString("dd MMM yyyy");
+    }
+}

@@ -40,4 +40,5 @@ public class Trip
     // Navigation
     public ICollection<HotelBooking> HotelBookings { get; set; } = [];
     public ICollection<FlightBooking> FlightBookings { get; set; } = [];
+    public ICollection<TripBooking> TripBookings { get; set; } = [];
 }

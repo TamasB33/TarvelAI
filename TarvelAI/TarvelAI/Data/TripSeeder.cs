@@ -18,6 +18,7 @@ public static class TripSeeder
     // ── Wipes all travel data then re-seeds (useful during dev) ──────────────
     public static async Task ResetAndSeedAsync(AppDbContext db, UserManager<IdentityUser> userManager)
     {
+        db.TripBookings.RemoveRange(db.TripBookings);
         db.FlightBookings.RemoveRange(db.FlightBookings);
         db.HotelBookings.RemoveRange(db.HotelBookings);
         db.Trips.RemoveRange(db.Trips);
@@ -170,6 +171,21 @@ public static class TripSeeder
         };
 
         await db.FlightBookings.AddRangeAsync(flightBookings);
+
+        if (!await db.TripBookings.AnyAsync())
+        {
+            var tripBookings = new List<TripBooking>
+            {
+                new() { TripId = trips[0].Id, UserId = alice.Id, BookedAtUtc = DateTime.UtcNow.AddDays(-14) },
+                new() { TripId = trips[1].Id, UserId = bob.Id,   BookedAtUtc = DateTime.UtcNow.AddDays(-10) },
+                new() { TripId = trips[2].Id, UserId = alice.Id, BookedAtUtc = DateTime.UtcNow.AddDays(-7)  },
+                new() { TripId = trips[3].Id, UserId = admin.Id, BookedAtUtc = DateTime.UtcNow.AddDays(-5)  },
+                new() { TripId = trips[4].Id, UserId = bob.Id,   BookedAtUtc = DateTime.UtcNow.AddDays(-2)  }
+            };
+
+            await db.TripBookings.AddRangeAsync(tripBookings);
+        }
+
         await db.SaveChangesAsync();
     }
 
