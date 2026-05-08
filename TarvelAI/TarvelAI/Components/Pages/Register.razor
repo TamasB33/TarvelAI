@@ -1,7 +1,7 @@
 @page "/register"
 @rendermode InteractiveServer
+@using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Nav
-@inject HttpClient Http
 
 <PageTitle>Register - TravelAI</PageTitle>
 
@@ -17,28 +17,26 @@
                 <MudAlert Severity="Severity.Error" Class="mb-4">@errorMessage</MudAlert>
             }
 
-            <MudTextField @bind-Value="email" Label="Email"
-                          Variant="Variant.Outlined" InputType="InputType.Email"
-                          Class="mb-4" />
+            <form method="post" action="/account/register">
+                <AntiforgeryToken />
+                <MudTextField T="string" @bind-Value="email" name="email" Label="Email"
+                              Variant="Variant.Outlined" InputType="InputType.Email"
+                              Class="mb-4" />
 
-            <MudTextField @bind-Value="password" Label="Password"
-                          Variant="Variant.Outlined" InputType="InputType.Password"
-                          Class="mb-4" HelperText="Minimum 6 characters" />
+                <MudTextField T="string" @bind-Value="password" name="password" Label="Password"
+                              Variant="Variant.Outlined" InputType="InputType.Password"
+                              Class="mb-4" HelperText="Minimum 6 characters" />
 
-            <MudTextField @bind-Value="confirmPassword"
-                          Label="Confirm Password" Variant="Variant.Outlined" InputType="InputType.Password"
-                          Class="mb-4" />
+                <MudTextField T="string" @bind-Value="confirmPassword" name="confirmPassword"
+                              Label="Confirm Password" Variant="Variant.Outlined" InputType="InputType.Password"
+                              Class="mb-4" />
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
-                       Size="Size.Large" Disabled="@isSubmitting"
-                       Style="border-radius: 8px; text-transform: none; font-weight: 600;"
-                       OnClick="HandleRegister">
-                @if (isSubmitting)
-                {
-                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                }
-                <span>Create Account</span>
-            </MudButton>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           Size="Size.Large"
+                           Style="border-radius: 8px; text-transform: none; font-weight: 600;">
+                    <span>Create Account</span>
+                </MudButton>
+            </form>
 
             <MudText Align="Align.Center" Class="mt-4">
                 Already have an account? <MudLink Href="/login">Sign in</MudLink>
@@ -52,40 +50,21 @@
     private string email = "";
     private string password = "";
     private string confirmPassword = "";
-    private bool isSubmitting = false;
 
-    private async Task HandleRegister()
+    protected override void OnInitialized()
     {
-        errorMessage = null;
-
-        if (password != confirmPassword)
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        if (!query.TryGetValue("error", out var err))
         {
-            errorMessage = "Passwords do not match.";
             return;
         }
 
-        isSubmitting = true;
-        try
+        errorMessage = err.ToString() switch
         {
-            var response = await Http.PostAsJsonAsync("/api/auth/register", new { Email = email, Password = password });
-
-            if (response.IsSuccessStatusCode)
-            {
-                Nav.NavigateTo("/login");
-            }
-            else
-            {
-                var errors = await response.Content.ReadFromJsonAsync<IEnumerable<string>>();
-                errorMessage = errors is not null ? string.Join(" ", errors) : "Registration failed.";
-            }
-        }
-        catch
-        {
-            errorMessage = "An unexpected error occurred. Please try again.";
-        }
-        finally
-        {
-            isSubmitting = false;
-        }
+            "password_mismatch" => "Passwords do not match.",
+            "missing" => "Email and password are required.",
+            _ => "Registration failed. Please check your details."
+        };
     }
 }

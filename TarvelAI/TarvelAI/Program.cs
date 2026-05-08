@@ -1,15 +1,13 @@
 using Microsoft.AspNetCore.Components;
-using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MudBlazor.Services;
-using TarvelAI.Auth;
-using TarvelAI.Components;
 using TarvelAI.Data;
 using TarvelAI.Endpoints;
 using TarvelAI.Hubs;
 using TarvelAI.Repositories;
+using TarvelAI.Services;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", false);
 
@@ -55,12 +53,29 @@ builder.Services.ConfigureApplicationCookie(o =>
 builder.Services.AddScoped<IHotelRepository, HotelRepository>();
 builder.Services.AddScoped<IFlightRepository, FlightRepository>();
 builder.Services.AddScoped<ITripRepository, TripRepository>();
+builder.Services.AddSingleton<IAiQuestionnaireService, AiQuestionnaireService>();
+builder.Services.AddOptions<OpenRouterOptions>()
+    .Bind(builder.Configuration.GetSection(OpenRouterOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.ApiKey),
+        "OpenRouter:ApiKey must be provided.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.Model),
+        "OpenRouter:Model must be provided.")
+    .Validate(
+        options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
+        "OpenRouter:BaseUrl must be a valid absolute URL.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IOpenRouterClient, OpenRouterClient>()
+    .SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
 // ── Authorization policies ────────────────────────────────────────────────────
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("Admin", policy => policy.RequireRole("Admin"));
 
 var app = builder.Build();
+_ = app.Services.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
 
 using(var scope = app.Services.CreateScope())
 {
@@ -88,9 +103,13 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapAuthEndpoints();
 app.MapHotelEndpoints();
+app.MapAiEndpoints();
 app.MapFlightEndpoints();
 app.MapTripEndpoints();
 app.MapRazorPages();
+
+
+
 
 // ── Dev-only: wipe and re-seed all data ───────────────────────────────────────
 if (app.Environment.IsDevelopment())
@@ -106,7 +125,9 @@ if (app.Environment.IsDevelopment())
 app.MapHub<TravelHub>("/hubs/travel");
 
 // ── Blazor ────────────────────────────────────────────────────────────────────
-app.MapRazorComponents<App>()
+
+// Use the correct App component for Blazor Server
+app.MapRazorComponents<TarvelAI.Components.App>()
     .AddInteractiveServerRenderMode();
 
 app.Run();

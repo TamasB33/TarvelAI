@@ -1,4 +1,5 @@
 @rendermode InteractiveServer
+@implements IDisposable
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @using Microsoft.AspNetCore.Components.Authorization
@@ -30,11 +31,13 @@
                         </Authorized>
                     </AuthorizeView>
                     <MudText Typo="Typo.body2" Style="color: #5a6a7a;">@_userName</MudText>
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                               OnClick="HandleLogout"
-                               Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 6px 20px;">
-                        Log Out
-                    </MudButton>
+                    <form method="post" action="/account/logout">
+                        <AntiforgeryToken />
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Outlined" Color="Color.Primary"
+                                   Style="border-radius: 8px; text-transform: none; font-weight: 500; padding: 6px 20px;">
+                            Log Out
+                        </MudButton>
+                    </form>
                 </MudStack>
             </Authorized>
             <NotAuthorized>
@@ -55,23 +58,28 @@
 
 @code {
     private string? _userName;
+    private EventHandler<LocationChangedEventArgs>? _locationChangedHandler;
 
     protected override async Task OnInitializedAsync()
     {
         AuthStateProvider.AuthenticationStateChanged += OnAuthStateChanged;
-        Navigation.LocationChanged += (_, _) => StateHasChanged();
+        _locationChangedHandler = (_, _) => InvokeAsync(StateHasChanged);
+        Navigation.LocationChanged += _locationChangedHandler;
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
         _userName = state.User.Identity?.Name;
     }
 
-    private async void OnAuthStateChanged(Task<AuthenticationState> task)
+    private void OnAuthStateChanged(Task<AuthenticationState> task)
+    {
+        _ = HandleAuthStateChangedAsync(task);
+    }
+
+    private async Task HandleAuthStateChangedAsync(Task<AuthenticationState> task)
     {
         var state = await task;
         _userName = state.User.Identity?.Name;
         await InvokeAsync(StateHasChanged);
     }
-
-    private void HandleLogout() => Navigation.NavigateTo("/account/logout", forceLoad: true);
 
     private string GetLinkStyle(string href)
     {
@@ -81,5 +89,14 @@
         return isActive
             ? "color: #00539C; font-weight: 600; font-size: 15px; border-bottom: 2px solid #00539C; padding-bottom: 2px; transition: color 0.2s;"
             : "color: #757575; font-weight: 500; font-size: 15px; padding-bottom: 2px; transition: color 0.2s;";
+    }
+
+    public void Dispose()
+    {
+        AuthStateProvider.AuthenticationStateChanged -= OnAuthStateChanged;
+        if (_locationChangedHandler is not null)
+        {
+            Navigation.LocationChanged -= _locationChangedHandler;
+        }
     }
 }

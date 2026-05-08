@@ -1,160 +1,218 @@
 @page "/ai-planner"
-@rendermode InteractiveServer
-@inject NavigationManager Navigation
-@implements IAsyncDisposable
+@using TarvelAI.DTOs.AI
+@inject HttpClient Http
 
 <PageTitle>AI Planner – TravelAI</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.Medium" Class="py-12">
-
     <MudStack Spacing="2" Class="mb-8">
         <MudText Typo="Typo.h4" Style="font-weight: 700; color: #1a2b4a;">
             AI Travel Planner
         </MudText>
         <MudText Typo="Typo.body1" Color="Color.Secondary">
-            Describe your dream trip in plain English. Our AI will respond in real time.
+            Answer adaptive AI questions and get personalized trip recommendations.
         </MudText>
     </MudStack>
 
-    <!-- Chat history -->
-    <MudPaper Elevation="0" Style="border: 1px solid #e2e8f0; border-radius: 16px; min-height: 360px; max-height: 520px; overflow-y: auto; padding: 24px; background: #f8fafc;" @ref="_chatBox">
-        @if (!_messages.Any())
-        {
-            <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Style="height: 300px; opacity: 0.45;">
-                <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Style="font-size: 64px; color: #00539C;" />
-                <MudText Typo="Typo.body1" Style="color: #5a6a7a;">Ask me anything about your next trip…</MudText>
-            </MudStack>
-        }
-
-        @foreach (var msg in _messages)
-        {
-            <MudStack Row="@(msg.IsUser)" Justify="@(msg.IsUser ? Justify.FlexEnd : Justify.FlexStart)" Class="mb-4">
-                @if (!msg.IsUser)
-                {
-                    <MudAvatar Size="Size.Small" Style="background: #00539C; color: #fff; margin-right: 8px; flex-shrink: 0;">
-                        <MudIcon Icon="@Icons.Material.Filled.AutoAwesome" Size="Size.Small" />
-                    </MudAvatar>
-                }
-                <MudPaper Elevation="0"
-                          Style="@($"max-width: 78%; padding: 12px 16px; border-radius: {(msg.IsUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px")}; background: {(msg.IsUser ? "#00539C" : "#fff")}; color: {(msg.IsUser ? "#fff" : "#1a2b4a")}; border: {(msg.IsUser ? "none" : "1px solid #e2e8f0")}; word-break: break-word;")">
-                    <MudText Typo="Typo.body2" Style="white-space: pre-wrap; line-height: 1.6;">@msg.Text</MudText>
-
-                    @if (msg.IsStreaming)
-                    {
-                        <span class="typing-cursor">|</span>
-                    }
-                </MudPaper>
-            </MudStack>
-        }
-    </MudPaper>
-
-    <!-- Input bar -->
-    <MudPaper Elevation="2" Style="border-radius: 16px; padding: 8px 8px 8px 16px; margin-top: 16px; display: flex; align-items: center; gap: 8px;">
-        <MudTextField T="string" @bind-Value="_input"
-                      Placeholder="e.g. Plan me a 10-day cultural trip to Japan in October…"
-                      Variant="Variant.Text" Underline="false"
-                      Style="flex: 1;"
-                      Disabled="_streaming"
-                      OnKeyDown="HandleKeyDown" />
-        <MudIconButton Icon="@Icons.Material.Filled.Send"
-                       Color="Color.Primary" Variant="Variant.Filled"
-                       Style="border-radius: 12px;"
-                       Disabled="@(_streaming || string.IsNullOrWhiteSpace(_input))"
-                       OnClick="SendAsync" />
-    </MudPaper>
-
-    @if (_streaming)
+    @if (!string.IsNullOrWhiteSpace(_error))
     {
-        <MudText Typo="Typo.caption" Style="color: #94a3b8; margin-top: 6px; margin-left: 4px;">
-            <MudProgressLinear Indeterminate Color="Color.Primary" Size="Size.Small" Rounded Style="margin-bottom: 4px;" />
-            AI is thinking…
-        </MudText>
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">@_error</MudAlert>
+    }
+
+    @if (_currentQuestion is null && _recommendations.Count == 0)
+    {
+        <MudPaper Class="pa-4">
+            <MudText Typo="Typo.body1" Class="mb-3">
+                Start a new adaptive questionnaire.
+            </MudText>
+            <MudTextField @bind-Value="_goal" Label="Optional travel goal" Placeholder="e.g., relaxing nature trip with moderate budget" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="StartQuestionnaire" Disabled="_loading" Class="mt-3">
+                Start AI Questionnaire
+            </MudButton>
+        </MudPaper>
+    }
+
+    @if (_currentQuestion is not null)
+    {
+        <MudPaper Class="mt-6 pa-4">
+            <MudText Typo="Typo.h6">Question @_questionNumber</MudText>
+            <MudText Typo="Typo.body1" Class="mb-4">@_currentQuestion.QuestionText</MudText>
+
+            @if (_currentQuestion.AllowsMultiple)
+            {
+                @foreach (var option in _currentQuestion.Options)
+                {
+                    <MudCheckBox @bind-Value="_multiSelections[option.Id]" Label="@option.Label" />
+                }
+            }
+            else
+            {
+                <MudRadioGroup T="string" @bind-Value="_singleSelectionId">
+                    @foreach (var option in _currentQuestion.Options)
+                    {
+                        <MudRadio T="string" Value="@option.Id" Label="@option.Label" />
+                    }
+                </MudRadioGroup>
+            }
+
+            <MudStack Row="true" Class="mt-4" Spacing="2">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitAnswer" Disabled="_loading">
+                    Next
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetQuestionnaire" Disabled="_loading">
+                    Restart
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (_recommendations.Count > 0)
+    {
+        <MudPaper Class="mt-6 pa-4">
+            <MudText Typo="Typo.h6" Class="mb-4">Recommended Trips</MudText>
+            <MudStack Spacing="3">
+                @foreach (var rec in _recommendations)
+                {
+                    <MudPaper Class="pa-3">
+                        <MudText Typo="Typo.subtitle1">@rec.Name (@rec.Destination)</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@rec.Description</MudText>
+                        <MudText Typo="Typo.body2">Price: @rec.BasePrice.ToString("0.##") | Duration: @rec.DurationDays days</MudText>
+                        <MudText Typo="Typo.caption">Match: @rec.MatchReason (score: @rec.MatchScore.ToString("0.##"))</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="ResetQuestionnaire" Class="mt-4">
+                Start New Questionnaire
+            </MudButton>
+        </MudPaper>
+    }
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate Color="Color.Primary" Class="mt-4" />
     }
 </MudContainer>
 
-<style>
-    .typing-cursor {
-        display: inline-block;
-        animation: blink 0.8s step-end infinite;
-        color: #00539C;
-        font-weight: 700;
-        margin-left: 2px;
-    }
-    @@keyframes blink {
-        0%, 100% { opacity: 1; }
-        50%       { opacity: 0; }
-    }
-</style>
-
 @code {
-    private HubConnection? _hub;
-    private string _input = "";
-    private bool _streaming;
-    private MudPaper? _chatBox;
+    private string? _sessionId;
+    private string? _goal;
+    private int _questionNumber;
+    private string? _singleSelectionId;
+    private string? _error;
+    private bool _loading;
+    private AiQuestionNodeDto? _currentQuestion;
+    private Dictionary<string, bool> _multiSelections = new();
+    private List<AiRecommendationDto> _recommendations = [];
 
-    private class ChatMessage
+    private async Task StartQuestionnaire()
     {
-        public bool IsUser { get; init; }
-        public string Text { get; set; } = "";
-        public bool IsStreaming { get; set; }
-    }
-
-    private List<ChatMessage> _messages = [];
-
-    protected override async Task OnInitializedAsync()
-    {
-        _hub = new HubConnectionBuilder()
-            .WithUrl(Navigation.ToAbsoluteUri("/hubs/travel"))
-            .WithAutomaticReconnect()
-            .Build();
-
-        _hub.On<string>("StreamStarted", type =>
+        _error = null;
+        _loading = true;
+        try
         {
-            if (type != "ai") return;
-            _streaming = true;
-            _messages.Add(new ChatMessage { IsUser = false, Text = "", IsStreaming = true });
-            InvokeAsync(StateHasChanged);
-        });
+            var response = await Http.PostAsJsonAsync("/api/ai/questionnaire/start", new AiQuestionnaireStartRequest { Goal = _goal });
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "Could not start questionnaire.";
+                return;
+            }
 
-        _hub.On<string>("ReceiveToken", token =>
+            var payload = await response.Content.ReadFromJsonAsync<AiQuestionnaireResponseDto>();
+            if (payload?.Question is null)
+            {
+                _error = "No question returned by AI.";
+                return;
+            }
+
+            _sessionId = payload.SessionId;
+            _currentQuestion = payload.Question;
+            _questionNumber = 1;
+            _singleSelectionId = null;
+            _multiSelections = _currentQuestion.Options.ToDictionary(x => x.Id, _ => false);
+            _recommendations = [];
+        }
+        finally
         {
-            var last = _messages.LastOrDefault(m => !m.IsUser);
-            if (last is not null) last.Text += token;
-            InvokeAsync(StateHasChanged);
-        });
+            _loading = false;
+        }
+    }
 
-        _hub.On<string>("StreamEnded", type =>
+    private async Task SubmitAnswer()
+    {
+        if (_currentQuestion is null || string.IsNullOrWhiteSpace(_sessionId))
         {
-            if (type != "ai") return;
-            var last = _messages.LastOrDefault(m => !m.IsUser);
-            if (last is not null) last.IsStreaming = false;
-            _streaming = false;
-            InvokeAsync(StateHasChanged);
-        });
+            return;
+        }
 
-        await _hub.StartAsync();
+        _error = null;
+        _loading = true;
+        try
+        {
+            var selected = _currentQuestion.AllowsMultiple
+                ? _multiSelections.Where(kv => kv.Value).Select(kv => kv.Key).ToList()
+                : string.IsNullOrWhiteSpace(_singleSelectionId) ? [] : [_singleSelectionId];
+
+            if (selected.Count == 0)
+            {
+                _error = "Please choose at least one option.";
+                return;
+            }
+
+            var request = new AiQuestionnaireAnswerRequest
+            {
+                SessionId = _sessionId,
+                QuestionId = _currentQuestion.QuestionId,
+                SelectedOptionIds = selected
+            };
+
+            var response = await Http.PostAsJsonAsync("/api/ai/questionnaire/answer", request);
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "Could not submit answer.";
+                return;
+            }
+
+            var payload = await response.Content.ReadFromJsonAsync<AiQuestionnaireResponseDto>();
+            if (payload is null)
+            {
+                _error = "Empty response from AI endpoint.";
+                return;
+            }
+
+            if (payload.IsComplete)
+            {
+                _recommendations = payload.Recommendations;
+                _currentQuestion = null;
+                return;
+            }
+
+            if (payload.Question is null)
+            {
+                _error = "Next question missing from response.";
+                return;
+            }
+
+            _questionNumber++;
+            _currentQuestion = payload.Question;
+            _singleSelectionId = null;
+            _multiSelections = _currentQuestion.Options.ToDictionary(x => x.Id, _ => false);
+        }
+        finally
+        {
+            _loading = false;
+        }
     }
 
-    private async Task SendAsync()
+    private void ResetQuestionnaire()
     {
-        var prompt = _input.Trim();
-        if (string.IsNullOrEmpty(prompt) || _hub is null) return;
-
-        _messages.Add(new ChatMessage { IsUser = true, Text = prompt });
-        _input = "";
-        await InvokeAsync(StateHasChanged);
-
-        await _hub.SendAsync("AskAI", prompt);
-    }
-
-    private async Task HandleKeyDown(KeyboardEventArgs e)
-    {
-        if (e.Key == "Enter" && !e.ShiftKey)
-            await SendAsync();
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        if (_hub is not null) await _hub.DisposeAsync();
+        _sessionId = null;
+        _goal = null;
+        _questionNumber = 0;
+        _singleSelectionId = null;
+        _error = null;
+        _loading = false;
+        _currentQuestion = null;
+        _multiSelections = [];
+        _recommendations = [];
     }
 }

@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Identity.Data;
 using Microsoft.AspNetCore.Mvc;
-using System.Data;
 
 namespace TarvelAI.Endpoints
 {
@@ -24,62 +22,47 @@ namespace TarvelAI.Endpoints
                     return Results.Redirect("/login?error=locked");
 
                 return Results.Redirect("/login?error=invalid");
-            }).DisableAntiforgery();
-
-            app.MapGet("/account/logout", async (SignInManager<IdentityUser> signInManager) =>
-            {
-                await signInManager.SignOutAsync();
-                return Results.Redirect("/");
             });
 
-            app.MapPost("/api/auth/register", async (
-                RegisterRequest req,
+            app.MapPost("/account/register", async (
+                [FromForm] string email,
+                [FromForm] string password,
+                [FromForm] string confirmPassword,
                 UserManager<IdentityUser> userManager) =>
             {
-              
+                if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+                {
+                    return Results.Redirect("/register?error=missing");
+                }
 
-                var user = new IdentityUser { UserName = req.Email, Email = req.Email };
-                var userCreation = await userManager.CreateAsync(user, req.Password);
+                if (!string.Equals(password, confirmPassword, StringComparison.Ordinal))
+                {
+                    return Results.Redirect("/register?error=password_mismatch");
+                }
+
+                var user = new IdentityUser { UserName = email, Email = email };
+                var userCreation = await userManager.CreateAsync(user, password);
 
                 if (!userCreation.Succeeded)
                 {
-                    return Results.BadRequest(userCreation.Errors.Select(e => e.Description));
+                    return Results.Redirect("/register?error=invalid");
                 }
 
                 var roleResult = await userManager.AddToRoleAsync(user, "User");
-                
                 if (!roleResult.Succeeded)
                 {
-                    return Results.BadRequest(roleResult.Errors.Select(e => e.Description));
+                    await userManager.DeleteAsync(user);
+                    return Results.Redirect("/register?error=invalid");
                 }
 
-                return Results.Ok(new { message = "Registration successful." });
+                return Results.Redirect("/login?registered=1");
             });
 
-            app.MapPost("/api/auth/login", async (
-                LoginRequest req,
-                SignInManager<IdentityUser> signInManager) =>
-            {
-                var result = await signInManager.PasswordSignInAsync(
-                    req.Email, req.Password, req.RememberMe, lockoutOnFailure: true);
-
-                if (result.Succeeded)
-                    return Results.Ok(new { message = "Login successful." });
-
-                if (result.IsLockedOut)
-                    return Results.Problem("Account is locked out. Try again later.", statusCode: 423);
-
-                return Results.Unauthorized();
-            });
-
-            app.MapPost("/api/auth/logout", async (SignInManager<IdentityUser> signInManager) =>
+            app.MapPost("/account/logout", async (SignInManager<IdentityUser> signInManager) =>
             {
                 await signInManager.SignOutAsync();
-                return Results.Ok(new { message = "Logged out." });
+                return Results.Redirect("/");
             }).RequireAuthorization();
         }
-
-        public record LoginRequest(string Email, string Password, bool RememberMe = false);
-        public record RegisterRequest(string Email, string Password);
     }
 }
