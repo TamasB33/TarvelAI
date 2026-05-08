@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Text;
-using System.Text.Json;
 using TarvelAI.DTOs.AI;
 using TarvelAI.DTOs.Trip;
 
@@ -32,23 +31,13 @@ internal sealed class QuestionnaireSession
     public DateTime LastAccessedAtUtc { get; set; }
 }
 
-internal sealed class GeminiQuestionResult
-{
-    public bool IsComplete { get; set; }
-    public string QuestionText { get; set; } = "";
-    public bool AllowsMultiple { get; set; }
-    public string? Reason { get; set; }
-    public List<AiOptionDto> Options { get; set; } = [];
-}
-
 public sealed class AiQuestionnaireService(
-    IHttpClientFactory httpClientFactory,
+    IOpenRouterClient openRouterClient,
     IConfiguration configuration,
     ILogger<AiQuestionnaireService> logger
 ) : IAiQuestionnaireService
 {
     private const int MaxQuestions = 7;
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly ConcurrentDictionary<string, QuestionnaireSession> _sessions = new();
     private readonly TimeSpan _sessionTtl = TimeSpan.FromMinutes(
         Math.Max(5, configuration.GetValue<int?>("AiQuestionnaire:SessionTtlMinutes") ?? 30)
@@ -197,16 +186,30 @@ public sealed class AiQuestionnaireService(
 
     private async Task<AiQuestionNodeDto> GenerateQuestionAsync(QuestionnaireSession session, CancellationToken cancellationToken)
     {
-        var generated = await GenerateFromGeminiAsync(session, cancellationToken);
+        var prompt = BuildQuestionPrompt(session);
+        var generated = await openRouterClient.GenerateQuestionAsync(prompt, cancellationToken);
         if (generated is null)
         {
+            logger.LogWarning(
+                "Using fallback question for session {SessionId} at index {QuestionIndex}.",
+                session.SessionId,
+                session.History.Count + 1);
             generated = GenerateFallbackQuestion(session);
+        }
+        else
+        {
+            logger.LogInformation(
+                "Using OpenRouter question for session {SessionId} at index {QuestionIndex}. Complete: {IsComplete}, Options: {OptionCount}.",
+                session.SessionId,
+                session.History.Count + 1,
+                generated.IsComplete,
+                generated.Options.Count);
         }
 
         return NormalizeQuestion(generated, session.History.Count);
     }
 
-    private AiQuestionNodeDto NormalizeQuestion(GeminiQuestionResult raw, int step)
+    private AiQuestionNodeDto NormalizeQuestion(AiQuestionGenerationResult raw, int step)
     {
         var options = raw.Options
             .Where(o => !string.IsNullOrWhiteSpace(o.Label))
@@ -230,21 +233,10 @@ public sealed class AiQuestionnaireService(
         };
     }
 
-    private async Task<GeminiQuestionResult?> GenerateFromGeminiAsync(QuestionnaireSession session, CancellationToken cancellationToken)
+    private static string BuildQuestionPrompt(QuestionnaireSession session)
     {
-        var apiKey = configuration["Gemini:ApiKey"];
-        var model = configuration["Gemini:Model"] ?? "gemini-2.0-flash";
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            return null;
-        }
-
-        try
-        {
-            var client = httpClientFactory.CreateClient("gemini");
-            var historyText = BuildHistoryText(session.History);
-            var prompt = @"Generate the next travel preference question for an adaptive questionnaire.
+        var historyText = BuildHistoryText(session.History);
+        return @"Generate the next travel preference question for an adaptive questionnaire.
 Return ONLY valid JSON (no markdown).
 
 Constraints:
@@ -270,78 +262,6 @@ User goal: " + (session.Goal ?? "find a trip they'll love") + @"
 Question index: " + (session.History.Count + 1) + @"
 Previous answers:
 " + historyText;
-
-            var requestBody = new
-            {
-                contents = new[]
-                {
-                    new
-                    {
-                        role = "user",
-                        parts = new[] { new { text = prompt } }
-                    }
-                },
-                generationConfig = new
-                {
-                    temperature = 0.7,
-                    responseMimeType = "application/json"
-                }
-            };
-
-            using var response = await client.PostAsJsonAsync(
-                $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={apiKey}",
-                requestBody,
-                cancellationToken
-            );
-
-            if (!response.IsSuccessStatusCode)
-            {
-                logger.LogWarning("Gemini call failed with status {StatusCode}", response.StatusCode);
-                return null;
-            }
-
-            using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
-            if (!TryReadGeminiText(doc, out var jsonText))
-            {
-                logger.LogWarning("Gemini response could not be parsed.");
-                return null;
-            }
-
-            var parsed = JsonSerializer.Deserialize<GeminiQuestionResult>(jsonText, JsonOptions);
-            return parsed;
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Gemini question generation failed; using fallback.");
-            return null;
-        }
-    }
-
-    private static bool TryReadGeminiText(JsonDocument doc, out string text)
-    {
-        text = "";
-        try
-        {
-            var root = doc.RootElement;
-            var candidates = root.GetProperty("candidates");
-            if (candidates.GetArrayLength() == 0)
-            {
-                return false;
-            }
-
-            var parts = candidates[0].GetProperty("content").GetProperty("parts");
-            if (parts.GetArrayLength() == 0)
-            {
-                return false;
-            }
-
-            text = parts[0].GetProperty("text").GetString() ?? "";
-            return !string.IsNullOrWhiteSpace(text);
-        }
-        catch
-        {
-            return false;
-        }
     }
 
     private static string BuildHistoryText(IEnumerable<SessionAnswer> history)
@@ -364,9 +284,9 @@ Previous answers:
         return sb.ToString();
     }
 
-    private static GeminiQuestionResult GenerateFallbackQuestion(QuestionnaireSession session)
+    private static AiQuestionGenerationResult GenerateFallbackQuestion(QuestionnaireSession session)
     {
-        var bank = new List<GeminiQuestionResult>
+        var bank = new List<AiQuestionGenerationResult>
         {
             new()
             {

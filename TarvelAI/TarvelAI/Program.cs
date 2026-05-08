@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using MudBlazor.Services;
 using TarvelAI.Data;
 using TarvelAI.Endpoints;
@@ -53,13 +54,28 @@ builder.Services.AddScoped<IHotelRepository, HotelRepository>();
 builder.Services.AddScoped<IFlightRepository, FlightRepository>();
 builder.Services.AddScoped<ITripRepository, TripRepository>();
 builder.Services.AddSingleton<IAiQuestionnaireService, AiQuestionnaireService>();
-builder.Services.AddHttpClient("gemini").SetHandlerLifetime(TimeSpan.FromMinutes(5));
+builder.Services.AddOptions<OpenRouterOptions>()
+    .Bind(builder.Configuration.GetSection(OpenRouterOptions.SectionName))
+    .ValidateDataAnnotations()
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.ApiKey),
+        "OpenRouter:ApiKey must be provided.")
+    .Validate(
+        options => !string.IsNullOrWhiteSpace(options.Model),
+        "OpenRouter:Model must be provided.")
+    .Validate(
+        options => Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out _),
+        "OpenRouter:BaseUrl must be a valid absolute URL.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient<IOpenRouterClient, OpenRouterClient>()
+    .SetHandlerLifetime(TimeSpan.FromMinutes(5));
 
 // ── Authorization policies ────────────────────────────────────────────────────
 builder.Services.AddAuthorizationBuilder()
     .AddPolicy("Admin", policy => policy.RequireRole("Admin"));
 
 var app = builder.Build();
+_ = app.Services.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
 
 using(var scope = app.Services.CreateScope())
 {
