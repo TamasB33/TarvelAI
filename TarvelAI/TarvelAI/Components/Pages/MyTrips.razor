@@ -1,15 +1,15 @@
 @page "/my-trips"
 @rendermode InteractiveServer
 @attribute [Authorize]
-@using System.Net
-@using System.Net.Http.Json
+@using System.Security.Claims
 @using TarvelAI.DTOs.Trip
 @using TarvelAI.Models
+@using TarvelAI.Repositories
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.Authorization
-@inject HttpClient Http
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject ITripRepository TripRepository
 
 <PageTitle>My Trips - TravelAI</PageTitle>
 
@@ -200,11 +200,19 @@
     private List<MyTripDto> _ongoingTrips = [];
     private List<MyTripDto> _pastTrips = [];
     private MyTripDto? _upcomingTrip;
+    private string? _userId;
 
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthStateProvider.GetAuthenticationStateAsync();
         if (state.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(_userId))
         {
             Navigation.NavigateTo("/login");
             return;
@@ -221,16 +229,13 @@
 
         try
         {
-            var response = await Http.GetAsync("/api/trips/my");
-            if (response.StatusCode == HttpStatusCode.Unauthorized)
+            if (string.IsNullOrWhiteSpace(_userId))
             {
                 Navigation.NavigateTo("/login");
                 return;
             }
 
-            response.EnsureSuccessStatusCode();
-            var result = await response.Content.ReadFromJsonAsync<List<MyTripDto>>();
-            _myTrips = result ?? [];
+            _myTrips = (await TripRepository.GetMyBookedTripsAsync(_userId)).ToList();
 
             _ongoingTrips = _myTrips
                 .Where(t => t.Status is TripStatus.Planning or TripStatus.Confirmed)
@@ -257,10 +262,21 @@
     private async Task UnbookAsync(int tripId)
     {
         _error = null;
-        var response = await Http.DeleteAsync($"/api/trips/{tripId}/book");
-        if (!response.IsSuccessStatusCode)
+        if (string.IsNullOrWhiteSpace(_userId))
         {
-            _error = "Could not unbook this trip. Please try again.";
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var result = await TripRepository.UnbookTripAsync(tripId, _userId);
+        if (result != TripBookingOperationResult.Success)
+        {
+            _error = result switch
+            {
+                TripBookingOperationResult.TripNotFound => "Trip was not found.",
+                TripBookingOperationResult.BookingNotFound => "This trip is not currently booked.",
+                _ => "Could not unbook this trip. Please try again."
+            };
             return;
         }
 

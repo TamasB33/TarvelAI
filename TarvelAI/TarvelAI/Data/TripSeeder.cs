@@ -13,6 +13,7 @@ public static class TripSeeder
         var hotels              = await EnsureHotelsAsync(db);
         var flights             = await EnsureFlightsAsync(db);
         await EnsureTripsAsync(db, admin, alice, bob, hotels, flights);
+        await EnsureMyTripsDemoDataAsync(db, userManager);
     }
 
     // ── Wipes all travel data then re-seeds (useful during dev) ──────────────
@@ -36,6 +37,7 @@ public static class TripSeeder
         var hotels              = await EnsureHotelsAsync(db);
         var flights             = await EnsureFlightsAsync(db);
         await EnsureTripsAsync(db, admin, alice, bob, hotels, flights);
+        await EnsureMyTripsDemoDataAsync(db, userManager);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -184,6 +186,68 @@ public static class TripSeeder
             };
 
             await db.TripBookings.AddRangeAsync(tripBookings);
+        }
+
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task EnsureMyTripsDemoDataAsync(AppDbContext db, UserManager<IdentityUser> userManager)
+    {
+        var trips = await db.Trips.OrderBy(t => t.Id).ToListAsync();
+        if (trips.Count == 0)
+        {
+            return;
+        }
+
+        // Ensure status variety so My Trips shows both ongoing and past sections.
+        var statusTargets = new[]
+        {
+            TripStatus.Planning,
+            TripStatus.Confirmed,
+            TripStatus.Completed,
+            TripStatus.Cancelled,
+            TripStatus.Available
+        };
+
+        var hasStatusChanges = false;
+        for (var i = 0; i < trips.Count && i < statusTargets.Length; i++)
+        {
+            if (trips[i].Status == statusTargets[i])
+            {
+                continue;
+            }
+
+            trips[i].Status = statusTargets[i];
+            trips[i].UpdatedAt = DateTime.UtcNow;
+            hasStatusChanges = true;
+        }
+
+        if (hasStatusChanges)
+        {
+            await db.SaveChangesAsync();
+        }
+
+        var users = await userManager.GetUsersInRoleAsync("User");
+        foreach (var user in users)
+        {
+            var hasBookings = await db.TripBookings.AnyAsync(tb => tb.UserId == user.Id);
+            if (hasBookings)
+            {
+                continue;
+            }
+
+            var demoBookings = new List<TripBooking>();
+            for (var i = 0; i < trips.Count && i < 4; i++)
+            {
+                demoBookings.Add(new TripBooking
+                {
+                    TripId = trips[i].Id,
+                    UserId = user.Id,
+                    BookedAtUtc = DateTime.UtcNow.AddDays(-(i + 1) * 3)
+                });
+            }
+
+            await db.TripBookings.AddRangeAsync(demoBookings);
         }
 
         await db.SaveChangesAsync();
