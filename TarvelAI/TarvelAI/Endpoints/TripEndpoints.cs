@@ -1,5 +1,6 @@
 using TarvelAI.DTOs.Trip;
 using TarvelAI.Repositories;
+using System.Security.Claims;
 
 namespace TarvelAI.Endpoints;
 
@@ -22,6 +23,57 @@ public static class TripEndpoints
         {
             var trip = await repo.GetByIdAsync(id);
             return trip is null ? Results.NotFound() : Results.Ok(trip);
+        });
+
+        // GET /api/trips/my
+        readGroup.MapGet("/my", async (ClaimsPrincipal user, ITripRepository repo) =>
+        {
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var trips = await repo.GetMyBookedTripsAsync(userId);
+            return Results.Ok(trips);
+        });
+
+        // POST /api/trips/{id}/book
+        readGroup.MapPost("/{id:int}/book", async (int id, ClaimsPrincipal user, ITripRepository repo) =>
+        {
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await repo.BookTripAsync(id, userId);
+            return result switch
+            {
+                TripBookingOperationResult.Success => Results.Ok(new { message = "Trip booked successfully." }),
+                TripBookingOperationResult.TripNotFound => Results.NotFound(new { message = "Trip not found." }),
+                TripBookingOperationResult.AlreadyBooked => Results.Conflict(new { message = "Trip is already booked by this user." }),
+                _ => Results.BadRequest()
+            };
+        });
+
+        // DELETE /api/trips/{id}/book
+        readGroup.MapDelete("/{id:int}/book", async (int id, ClaimsPrincipal user, ITripRepository repo) =>
+        {
+            var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var result = await repo.UnbookTripAsync(id, userId);
+            return result switch
+            {
+                TripBookingOperationResult.Success => Results.NoContent(),
+                TripBookingOperationResult.TripNotFound => Results.NotFound(new { message = "Trip not found." }),
+                TripBookingOperationResult.BookingNotFound => Results.NotFound(new { message = "Booking not found for this user." }),
+                _ => Results.BadRequest()
+            };
         });
 
         // Write endpoints — Admin only

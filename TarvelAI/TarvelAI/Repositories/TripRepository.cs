@@ -108,4 +108,72 @@ public class TripRepository(AppDbContext db) : ITripRepository
                         ? t.User.Email
                         : t.CreatedBy
         };
+
+    public async Task<TripBookingOperationResult> BookTripAsync(int tripId, string userId)
+    {
+        var tripExists = await db.Trips.AnyAsync(t => t.Id == tripId);
+        if (!tripExists)
+        {
+            return TripBookingOperationResult.TripNotFound;
+        }
+
+        var alreadyBooked = await db.TripBookings.AnyAsync(tb => tb.TripId == tripId && tb.UserId == userId);
+        if (alreadyBooked)
+        {
+            return TripBookingOperationResult.AlreadyBooked;
+        }
+
+        db.TripBookings.Add(new Models.TripBooking
+        {
+            TripId = tripId,
+            UserId = userId,
+            BookedAtUtc = DateTime.UtcNow
+        });
+
+        await db.SaveChangesAsync();
+        return TripBookingOperationResult.Success;
+    }
+
+    public async Task<TripBookingOperationResult> UnbookTripAsync(int tripId, string userId)
+    {
+        var tripExists = await db.Trips.AnyAsync(t => t.Id == tripId);
+        if (!tripExists)
+        {
+            return TripBookingOperationResult.TripNotFound;
+        }
+
+        var booking = await db.TripBookings.FirstOrDefaultAsync(tb => tb.TripId == tripId && tb.UserId == userId);
+        if (booking is null)
+        {
+            return TripBookingOperationResult.BookingNotFound;
+        }
+
+        db.TripBookings.Remove(booking);
+        await db.SaveChangesAsync();
+        return TripBookingOperationResult.Success;
+    }
+
+    public async Task<IEnumerable<MyTripDto>> GetMyBookedTripsAsync(string userId)
+    {
+        return await db.TripBookings
+            .AsNoTracking()
+            .Where(tb => tb.UserId == userId)
+            .Select(tb => new MyTripDto
+            {
+                Id = tb.Trip.Id,
+                Name = tb.Trip.Name,
+                Destination = tb.Trip.Destination,
+                Description = tb.Trip.Description,
+                ImageUrl = tb.Trip.ImageUrl,
+                BasePrice = tb.Trip.BasePrice,
+                DurationDays = tb.Trip.DurationDays,
+                Status = tb.Trip.Status,
+                CreatedAt = tb.Trip.CreatedAt,
+                BookedAtUtc = tb.BookedAtUtc,
+                HotelBookingsCount = tb.Trip.HotelBookings.Count,
+                FlightBookingsCount = tb.Trip.FlightBookings.Count
+            })
+            .OrderByDescending(t => t.BookedAtUtc)
+            .ToListAsync();
+    }
 }

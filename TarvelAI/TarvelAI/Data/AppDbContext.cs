@@ -16,10 +16,27 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<HotelBooking> HotelBookings => Set<HotelBooking>();
     public DbSet<Flight> Flights => Set<Flight>();
     public DbSet<FlightBooking> FlightBookings => Set<FlightBooking>();
+    public DbSet<TripBooking> TripBookings => Set<TripBooking>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
         builder.Entity<Trip>().HasOne(t => t.User).WithMany().HasForeignKey(t => t.CreatedBy);
+
+        builder.Entity<TripBooking>()
+            .HasOne(tb => tb.Trip)
+            .WithMany(t => t.TripBookings)
+            .HasForeignKey(tb => tb.TripId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<TripBooking>()
+            .HasOne(tb => tb.User)
+            .WithMany()
+            .HasForeignKey(tb => tb.UserId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<TripBooking>()
+            .HasIndex(tb => new { tb.TripId, tb.UserId })
+            .IsUnique();
     }
 }
