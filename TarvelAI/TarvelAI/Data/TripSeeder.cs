@@ -103,7 +103,7 @@ public static class TripSeeder
                 Destination  = "Paris, France",
                 Description  = "A romantic escape to the city of lights. Explore the Eiffel Tower, Louvre and charming Montmartre.",
                 ImageUrl     = "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800",
-                BasePrice    = 1200m, DurationDays = 5, Status = TripStatus.Confirmed,
+                BasePrice    = 1200m, DurationDays = 5, Status = TripStatus.Available,
                 CreatedBy = alice.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
             },
             new()
@@ -112,7 +112,7 @@ public static class TripSeeder
                 Destination  = "Tokyo, Japan",
                 Description  = "Discover the perfect blend of ancient temples and futuristic technology in Japan's vibrant capital.",
                 ImageUrl     = "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800",
-                BasePrice    = 2400m, DurationDays = 10, Status = TripStatus.Planning,
+                BasePrice    = 2400m, DurationDays = 10, Status = TripStatus.Available,
                 CreatedBy = bob.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
             },
             new()
@@ -121,7 +121,7 @@ public static class TripSeeder
                 Destination  = "New York, USA",
                 Description  = "Experience the energy of Manhattan - Times Square, Central Park, and world-class dining.",
                 ImageUrl     = "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800",
-                BasePrice    = 1800m, DurationDays = 7, Status = TripStatus.Planning,
+                BasePrice    = 1800m, DurationDays = 7, Status = TripStatus.Available,
                 CreatedBy = alice.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
             },
             new()
@@ -130,7 +130,7 @@ public static class TripSeeder
                 Destination  = "Bali, Indonesia",
                 Description  = "Relax on stunning beaches, visit sacred temples and enjoy the lush rice terraces of Ubud.",
                 ImageUrl     = "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800",
-                BasePrice    = 950m, DurationDays = 8, Status = TripStatus.Confirmed,
+                BasePrice    = 950m, DurationDays = 8, Status = TripStatus.Available,
                 CreatedBy = admin.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
             },
             new()
@@ -139,7 +139,7 @@ public static class TripSeeder
                 Destination  = "Rome, Italy",
                 Description  = "Walk through ancient history in Rome then unwind along the breathtaking Amalfi coastline.",
                 ImageUrl     = "https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800",
-                BasePrice    = 1500m, DurationDays = 9, Status = TripStatus.Planning,
+                BasePrice    = 1500m, DurationDays = 9, Status = TripStatus.Available,
                 CreatedBy = bob.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
             },
         };

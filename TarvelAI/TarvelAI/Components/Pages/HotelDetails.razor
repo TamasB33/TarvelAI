@@ -1,0 +1,136 @@
+@page "/hotel/{Id:int}"
+@rendermode InteractiveServer
+@using TarvelAI.DTOs.Hotel
+@inject HttpClient Http
+
+<PageTitle>Hotel Details - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Large" Class="py-8">
+    @if (_loading)
+    {
+        <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="320px" Style="border-radius: 16px;" />
+        <MudSkeleton SkeletonType="SkeletonType.Text" Width="45%" Class="mt-4" />
+        <MudSkeleton SkeletonType="SkeletonType.Text" Width="80%" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/explore" Class="mt-4">Back to Explore</MudButton>
+    }
+    else if (_hotel is null)
+    {
+        <MudAlert Severity="Severity.Warning" Dense="true">Hotel not found.</MudAlert>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/explore" Class="mt-4">Back to Explore</MudButton>
+    }
+    else
+    {
+        <MudPaper Style="border-radius: 20px; overflow: hidden;" Class="mb-5">
+            <div style="position:relative;">
+                <MudImage Src="@SafeImage(_hotel.ImageUrl)" Alt="@_hotel.Name" Height="360" ObjectFit="ObjectFit.Cover" Style="width:100%;" />
+                <div style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,.68), rgba(0,0,0,.12));"></div>
+                <MudStack Spacing="1" Style="position:absolute; left:24px; right:24px; bottom:24px;">
+                    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success">@($"{_hotel.Rating:0.0} ★")</MudChip>
+                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Style="border-color:#fff;color:#fff;">
+                            Hotel
+                        </MudChip>
+                    </MudStack>
+                    <MudText Typo="Typo.h4" Style="font-weight:700; color:#fff;">@_hotel.Name</MudText>
+                    <MudText Typo="Typo.body1" Style="color:rgba(255,255,255,.92);">@($"{_hotel.City}, {_hotel.Country}")</MudText>
+                </MudStack>
+            </div>
+        </MudPaper>
+
+        <MudPaper Class="pa-5" Style="border-radius:16px;">
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.h6" Style="font-weight:700;">Hotel overview</MudText>
+                <MudText Typo="Typo.body1" Style="line-height:1.7;">@_hotel.Address</MudText>
+
+                <MudDivider />
+
+                <MudGrid Class="mt-1">
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.subtitle2" Style="color:#637186;">Quick info</MudText>
+                    </MudItem>
+                </MudGrid>
+                <MudGrid>
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-3" Style="border-radius: 12px; background:#f8fafc;">
+                        <MudText Typo="Typo.caption" Style="color:#637186;">City</MudText>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:700;">@_hotel.City</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-3" Style="border-radius: 12px; background:#f8fafc;">
+                        <MudText Typo="Typo.caption" Style="color:#637186;">Country</MudText>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:700;">@_hotel.Country</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-3" Style="border-radius: 12px; background:#f8fafc;">
+                        <MudText Typo="Typo.caption" Style="color:#637186;">Rating</MudText>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:700;">@($"{_hotel.Rating:0.0} / 5")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudPaper Class="pa-3" Style="border-radius: 12px; background:#f8fafc;">
+                        <MudText Typo="Typo.caption" Style="color:#637186;">Best for</MudText>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:700;">City and leisure stays</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+            </MudStack>
+        </MudPaper>
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/explore" Class="mt-6">Back to Explore</MudButton>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private HotelDto? _hotel;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            using var response = await Http.GetAsync($"/api/hotels/{Id}");
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                _hotel = null;
+                return;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _error = "Could not load hotel details right now.";
+                return;
+            }
+
+            _hotel = await response.Content.ReadFromJsonAsync<HotelDto>();
+        }
+        catch
+        {
+            _error = "Could not load hotel details right now.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static string SafeImage(string? imageUrl) =>
+        string.IsNullOrWhiteSpace(imageUrl)
+            ? "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200"
+            : imageUrl;
+}

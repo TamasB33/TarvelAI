@@ -1,0 +1,302 @@
+@page "/explore"
+@rendermode InteractiveServer
+@using System.Text.Json
+@using TarvelAI.DTOs.Hotel
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Explore - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-8">
+    <MudStack Spacing="3" Class="mb-6">
+        <MudText Typo="Typo.h3" Style="font-weight: 700; letter-spacing: -0.5px;">
+            Discover your next <span style="color:#008B8B;">horizon</span>.
+        </MudText>
+        <MudText Typo="Typo.body1" Style="color: #637186;">
+            Explore curated trips and hotels from your backend seeded data.
+        </MudText>
+    </MudStack>
+
+    <MudPaper Class="pa-4 mb-6" Style="border-radius: 16px;">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" md="6">
+                <MudButtonGroup Variant="Variant.Outlined" Color="Color.Primary" Class="w-100">
+                    <MudButton OnClick="@(() => SetMode(ExploreMode.Trips))"
+                               Variant="@(ActiveMode == ExploreMode.Trips ? Variant.Filled : Variant.Outlined)">
+                        Trips
+                    </MudButton>
+                    <MudButton OnClick="@(() => SetMode(ExploreMode.Hotels))"
+                               Variant="@(ActiveMode == ExploreMode.Hotels ? Variant.Filled : Variant.Outlined)">
+                        Hotels
+                    </MudButton>
+                </MudButtonGroup>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField T="string"
+                              Value="@_search"
+                              ValueChanged="@OnSearchChanged"
+                              Placeholder="Search by name, destination, city..."
+                              Variant="Variant.Outlined"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search"
+                              Immediate="true" />
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    @if (!string.IsNullOrWhiteSpace(_error))
+    {
+        <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">@_error</MudAlert>
+    }
+
+    <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudText Typo="Typo.h6" Style="font-weight: 700;">
+            @($"{VisibleCount} Curated Results")
+        </MudText>
+        <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.body2" Style="color:#637186;">Sort by</MudText>
+            <MudSelect T="string" Value="@_sortBy" ValueChanged="@OnSortChanged" Dense="true" Variant="Variant.Outlined">
+                @if (ActiveMode == ExploreMode.Trips)
+                {
+                    <MudSelectItem Value="@("relevance")">AI Recommendation Score</MudSelectItem>
+                    <MudSelectItem Value="@("price_asc")">Price (Low to High)</MudSelectItem>
+                    <MudSelectItem Value="@("duration_asc")">Duration (Shortest)</MudSelectItem>
+                }
+                else
+                {
+                    <MudSelectItem Value="@("relevance")">Featured</MudSelectItem>
+                    <MudSelectItem Value="@("rating_desc")">Rating (Highest)</MudSelectItem>
+                    <MudSelectItem Value="@("name_asc")">Name (A-Z)</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+    </MudStack>
+
+    @if (_loading)
+    {
+        <MudGrid Spacing="3">
+            @for (var i = 0; i < 6; i++)
+            {
+                <MudItem xs="12" sm="6" lg="4">
+                    <MudSkeleton SkeletonType="SkeletonType.Rectangle" Height="280px" Style="border-radius: 14px;" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else if (ActiveMode == ExploreMode.Trips)
+    {
+        if (!FilteredTrips.Any())
+        {
+            <MudAlert Severity="Severity.Info">No trips match your filters yet.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                @foreach (var trip in FilteredTrips)
+                {
+                    <MudItem xs="12" sm="6" lg="4">
+                        <MudCard Style="border-radius: 14px; overflow: hidden; height: 100%; cursor: pointer;"
+                                 @onclick="@(() => OpenTrip(trip.Id))">
+                            <MudCardMedia Image="@SafeImage(trip.ImageUrl)" Height="180" />
+                            <MudCardContent>
+                                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.h6" Style="font-weight:700;">@trip.Name</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Info">@trip.Status.ToString()</MudChip>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Style="color:#637186;" Class="mb-2">@trip.Destination</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-3">@TripSummary(trip.Description)</MudText>
+                                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@($"{trip.BasePrice:0.##} €")</MudText>
+                                    <MudText Typo="Typo.caption" Style="color:#637186;">@($"{trip.DurationDays} days")</MudText>
+                                </MudStack>
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Href="@($"/trip/{trip.Id}")"
+                                           Style="text-transform:none; padding-left:0;"
+                                           Class="mt-2"
+                                           @onclick:stopPropagation="true">
+                                    View details
+                                </MudButton>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    }
+    else
+    {
+        if (!FilteredHotels.Any())
+        {
+            <MudAlert Severity="Severity.Info">No hotels match your filters yet.</MudAlert>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                @foreach (var hotel in FilteredHotels)
+                {
+                    <MudItem xs="12" sm="6" lg="4">
+                        <MudCard Style="border-radius: 14px; overflow: hidden; height: 100%; cursor: pointer;"
+                                 @onclick="@(() => OpenHotel(hotel.Id))">
+                            <MudCardMedia Image="@SafeImage(hotel.ImageUrl)" Height="180" />
+                            <MudCardContent>
+                                <MudStack Row AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudText Typo="Typo.h6" Style="font-weight:700;">@hotel.Name</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Success">@($"{hotel.Rating:0.0} ★")</MudChip>
+                                </MudStack>
+                                <MudText Typo="Typo.body2" Style="color:#637186;" Class="mb-2">@($"{hotel.City}, {hotel.Country}")</MudText>
+                                <MudText Typo="Typo.body2" Class="mb-2">@hotel.Address</MudText>
+                                <MudText Typo="Typo.caption" Style="color:#637186;">Handpicked stay option from seeded data.</MudText>
+                                <MudButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Href="@($"/hotel/{hotel.Id}")"
+                                           Style="text-transform:none; padding-left:0;"
+                                           Class="mt-2"
+                                           @onclick:stopPropagation="true">
+                                    View details
+                                </MudButton>
+                            </MudCardContent>
+                        </MudCard>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    }
+</MudContainer>
+
+@code {
+    private enum ExploreMode { Trips, Hotels }
+
+    private ExploreMode ActiveMode { get; set; } = ExploreMode.Trips;
+    private bool _loading = true;
+    private string? _error;
+    private string _search = "";
+    private string _sortBy = "relevance";
+    private List<TripDto> _trips = [];
+    private List<HotelDto> _hotels = [];
+
+    private IEnumerable<TripDto> FilteredTrips => SortTrips(
+        _trips.Where(t =>
+            t.Status == TripStatus.Available &&
+            (SearchMatch(t.Name) ||
+             SearchMatch(t.Destination) ||
+             SearchMatch(t.Description))));
+
+    private IEnumerable<HotelDto> FilteredHotels => SortHotels(
+        _hotels.Where(h =>
+            SearchMatch(h.Name) ||
+            SearchMatch(h.City) ||
+            SearchMatch(h.Country) ||
+            SearchMatch(h.Address)));
+
+    private int VisibleCount => ActiveMode == ExploreMode.Trips ? FilteredTrips.Count() : FilteredHotels.Count();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var tripsTask = FetchJsonListAsync<TripDto>("/api/trips/");
+            var hotelsTask = FetchJsonListAsync<HotelDto>("/api/hotels/");
+            await Task.WhenAll(tripsTask!, hotelsTask!);
+            _trips = tripsTask.Result ?? [];
+            _hotels = hotelsTask.Result ?? [];
+        }
+        catch (UnauthorizedAccessException)
+        {
+            _error = "Please sign in to view explore results.";
+        }
+        catch (Exception)
+        {
+            _error = "Could not load explore data. Please try again in a moment.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SetMode(ExploreMode mode)
+    {
+        if (ActiveMode == mode) return;
+        ActiveMode = mode;
+        _sortBy = "relevance";
+    }
+
+    private void OnSearchChanged(string value) => _search = value;
+
+    private void OnSortChanged(string value) => _sortBy = value;
+
+    private bool SearchMatch(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(_search)) return true;
+        return !string.IsNullOrWhiteSpace(value) &&
+               value.Contains(_search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<TripDto> SortTrips(IEnumerable<TripDto> source) =>
+        _sortBy switch
+        {
+            "price_asc" => source.OrderBy(t => t.BasePrice),
+            "duration_asc" => source.OrderBy(t => t.DurationDays),
+            _ => source.OrderByDescending(t => t.CreatedAt)
+        };
+
+    private IEnumerable<HotelDto> SortHotels(IEnumerable<HotelDto> source) =>
+        _sortBy switch
+        {
+            "rating_desc" => source.OrderByDescending(h => h.Rating),
+            "name_asc" => source.OrderBy(h => h.Name),
+            _ => source.OrderByDescending(h => h.Rating).ThenBy(h => h.Name)
+        };
+
+    private static string TripSummary(string text) =>
+        string.IsNullOrWhiteSpace(text) ? "No summary available." :
+        text.Length <= 120 ? text : $"{text[..117]}...";
+
+    private static string SafeImage(string? imageUrl) =>
+        string.IsNullOrWhiteSpace(imageUrl)
+            ? "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1200"
+            : imageUrl;
+
+    private async Task<List<T>> FetchJsonListAsync<T>(string url)
+    {
+        using var response = await Http.GetAsync(url);
+        if (IsUnauthorizedResponse(response))
+        {
+            throw new UnauthorizedAccessException("Unauthorized explore request.");
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new HttpRequestException($"Explore request failed: {(int)response.StatusCode}");
+        }
+
+        await using var stream = await response.Content.ReadAsStreamAsync();
+        var payload = await JsonSerializer.DeserializeAsync<List<T>>(stream, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        return payload ?? [];
+    }
+
+    private static bool IsUnauthorizedResponse(HttpResponseMessage response)
+    {
+        if (response.StatusCode is System.Net.HttpStatusCode.Unauthorized or System.Net.HttpStatusCode.Forbidden)
+        {
+            return true;
+        }
+
+        var redirectedPath = response.RequestMessage?.RequestUri?.AbsolutePath ?? "";
+        return redirectedPath.StartsWith("/login", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void OpenTrip(int id) => Navigation.NavigateTo($"/trip/{id}");
+
+    private void OpenHotel(int id) => Navigation.NavigateTo($"/hotel/{id}");
+}

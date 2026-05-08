@@ -7,8 +7,8 @@ public static class TripEndpoints
 {
     public static void MapTripEndpoints(this WebApplication app)
     {
-        // GET endpoints — any authenticated user
-        var readGroup = app.MapGroup("/api/trips").RequireAuthorization();
+        // GET endpoints — public for explore browsing
+        var readGroup = app.MapGroup("/api/trips");
 
         // GET /api/trips
         readGroup.MapGet("/", async (ITripRepository repo) =>
