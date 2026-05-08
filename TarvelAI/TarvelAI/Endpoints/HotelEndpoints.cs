@@ -7,8 +7,8 @@ public static class HotelEndpoints
 {
     public static void MapHotelEndpoints(this WebApplication app)
     {
-        // GET endpoints — any authenticated user can view
-        var readGroup = app.MapGroup("/api/hotels").RequireAuthorization();
+        // GET endpoints — public for explore browsing
+        var readGroup = app.MapGroup("/api/hotels");
 
         // GET /api/hotels
         readGroup.MapGet("/", async (IHotelRepository repo) =>

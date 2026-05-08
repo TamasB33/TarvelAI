@@ -9,6 +9,7 @@ public enum BookingStatus
 
 public enum TripStatus
 {
+    Available,
     Planning,
     Confirmed,
     Completed,
