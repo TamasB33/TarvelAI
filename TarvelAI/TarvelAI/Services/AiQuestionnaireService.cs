@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text;
 using TarvelAI.DTOs.AI;
 using TarvelAI.DTOs.Trip;
+using TarvelAI.Models;
 
 namespace TarvelAI.Services;
 
@@ -353,6 +354,7 @@ public static class RecommendationEngine
             .ToHashSet(StringComparer.Ordinal);
 
         var recommendations = trips
+            .Where(trip => trip.Status == TripStatus.Available)
             .Select(trip =>
             {
                 var searchable = $"{trip.Name} {trip.Destination} {trip.Description}".ToLowerInvariant();
