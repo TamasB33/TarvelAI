@@ -1,6 +1,7 @@
 @page "/ai-planner"
 @using TarvelAI.DTOs.AI
 @inject HttpClient Http
+@inject NavigationManager Navigation
 
 <PageTitle>AI Planner – TravelAI</PageTitle>
 
@@ -73,11 +74,16 @@
             <MudStack Spacing="3">
                 @foreach (var rec in _recommendations)
                 {
-                    <MudPaper Class="pa-3">
+                    <MudPaper Class="pa-3" Style="cursor:pointer;" @onclick="@(() => OpenRecommendation(rec.TripId))">
                         <MudText Typo="Typo.subtitle1">@rec.Name (@rec.Destination)</MudText>
                         <MudText Typo="Typo.body2" Color="Color.Secondary">@rec.Description</MudText>
                         <MudText Typo="Typo.body2">Price: @rec.BasePrice.ToString("0.##") | Duration: @rec.DurationDays days</MudText>
                         <MudText Typo="Typo.caption">Match: @rec.MatchReason (score: @rec.MatchScore.ToString("0.##"))</MudText>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary"
+                                   OnClick="@((MouseEventArgs _) => OpenRecommendation(rec.TripId))"
+                                   Class="mt-2">
+                            View details
+                        </MudButton>
                     </MudPaper>
                 }
             </MudStack>
@@ -214,5 +220,10 @@
         _currentQuestion = null;
         _multiSelections = [];
         _recommendations = [];
+    }
+
+    private void OpenRecommendation(int tripId)
+    {
+        Navigation.NavigateTo($"/trip/{tripId}");
     }
 }
