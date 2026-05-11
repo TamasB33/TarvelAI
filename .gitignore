@@ -361,3 +361,13 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# Local architecture notes (do not track)
+/ARCHITECTURE.md
+
+# Local product requirements notes (do not track)
+/PRD.md
+
+# Local contributor/agent docs (do not track)
+/AGENTS.md
+/CONTRIBUTING.md
