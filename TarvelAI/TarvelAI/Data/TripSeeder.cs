@@ -200,9 +200,10 @@ public static class TripSeeder
         }
 
         // Ensure status variety so My Trips shows both ongoing and past sections.
+        // Avoid forcing Planning on trips that already have seeded bookings (would pollute the admin planning queue).
         var statusTargets = new[]
         {
-            TripStatus.Planning,
+            TripStatus.Confirmed,
             TripStatus.Confirmed,
             TripStatus.Completed,
             TripStatus.Cancelled,
@@ -212,12 +213,16 @@ public static class TripSeeder
         var hasStatusChanges = false;
         for (var i = 0; i < trips.Count && i < statusTargets.Length; i++)
         {
-            if (trips[i].Status == statusTargets[i])
+            if (trips[i].Status == statusTargets[i]
+                && trips[i].AdminHotelConfirmed == false
+                && trips[i].AdminAirlineConfirmed == false)
             {
                 continue;
             }
 
             trips[i].Status = statusTargets[i];
+            trips[i].AdminHotelConfirmed = false;
+            trips[i].AdminAirlineConfirmed = false;
             trips[i].UpdatedAt = DateTime.UtcNow;
             hasStatusChanges = true;
         }

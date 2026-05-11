@@ -35,6 +35,10 @@ public class HotelBooking
     public int TripId { get; set; }
     public Trip Trip { get; set; } = null!;
 
+    // When set, this row is a user reservation cloned from a template; null = package template / catalog row
+    public int? TripBookingId { get; set; }
+    public TripBooking? TripBooking { get; set; }
+
     // FK to Hotel
     public int HotelId { get; set; }
     public Hotel Hotel { get; set; } = null!;

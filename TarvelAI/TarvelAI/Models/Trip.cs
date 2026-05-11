@@ -29,6 +29,12 @@ public class Trip
 
     public TripStatus Status { get; set; } = TripStatus.Planning;
 
+    /// <summary>Admin workflow: confirmed with hotel supplier (Planning trips only).</summary>
+    public bool AdminHotelConfirmed { get; set; }
+
+    /// <summary>Admin workflow: confirmed with airline (Planning trips only).</summary>
+    public bool AdminAirlineConfirmed { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

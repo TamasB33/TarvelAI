@@ -17,6 +17,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<Flight> Flights => Set<Flight>();
     public DbSet<FlightBooking> FlightBookings => Set<FlightBooking>();
     public DbSet<TripBooking> TripBookings => Set<TripBooking>();
+    public DbSet<TripBookingInvoice> TripBookingInvoices => Set<TripBookingInvoice>();
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -38,5 +39,23 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
         builder.Entity<TripBooking>()
             .HasIndex(tb => new { tb.TripId, tb.UserId })
             .IsUnique();
+
+        builder.Entity<TripBooking>()
+            .HasOne(tb => tb.Invoice)
+            .WithOne(i => i.TripBooking)
+            .HasForeignKey<TripBookingInvoice>(i => i.TripBookingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<HotelBooking>()
+            .HasOne(h => h.TripBooking)
+            .WithMany(tb => tb.UserHotelBookings)
+            .HasForeignKey(h => h.TripBookingId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Entity<FlightBooking>()
+            .HasOne(f => f.TripBooking)
+            .WithMany(tb => tb.UserFlightBookings)
+            .HasForeignKey(f => f.TripBookingId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

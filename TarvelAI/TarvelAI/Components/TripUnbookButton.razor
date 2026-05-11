@@ -1,0 +1,26 @@
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+
+@if (AllowUnbook)
+{
+    <MudButton Variant="@Variant" Color="Color.Error" OnClick="@(() => OnUnbook.InvokeAsync(Trip.Id))">Unbook</MudButton>
+}
+else
+{
+    <MudTooltip Text="Confirmed trips cannot be cancelled on or after the first travel date (earliest hotel check-in or flight departure, UTC calendar).">
+        <span style="display:inline-block;">
+            <MudButton Variant="@Variant" Color="Color.Error" Disabled="true">Unbook</MudButton>
+        </span>
+    </MudTooltip>
+}
+
+@code {
+    [Parameter] public MyTripDto Trip { get; set; } = default!;
+    [Parameter] public Variant Variant { get; set; } = Variant.Text;
+    [Parameter] public EventCallback<int> OnUnbook { get; set; }
+
+    private bool AllowUnbook =>
+        Trip.Status != TripStatus.Confirmed
+        || Trip.ItineraryStartDate is not { } start
+        || start > DateOnly.FromDateTime(DateTime.UtcNow);
+}

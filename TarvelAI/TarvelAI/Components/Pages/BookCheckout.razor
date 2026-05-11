@@ -1,0 +1,219 @@
+@page "/book/checkout/{TripId:int}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+@using TarvelAI.Repositories
+@using Microsoft.Extensions.Hosting
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITripRepository TripRepository
+@inject IHostEnvironment HostEnvironment
+@inject ILogger<BookCheckout> Logger
+
+<PageTitle>Checkout - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="py-8">
+    <MudText Typo="Typo.h5" Class="mb-2" Style="font-weight:700; color:#0F2A43;">Invoicing details</MudText>
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">Enter billing information for this booking (demo — values are stored with your trip).</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate Color="Color.Primary" Class="mb-4" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_fatalError))
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">@_fatalError</MudAlert>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/trip/{TripId}")">Back to trip</MudButton>
+    }
+    else if (_trip is null)
+    {
+        <MudAlert Severity="Severity.Error" Dense="true">Trip not found.</MudAlert>
+        <MudButton Class="mt-4" Variant="Variant.Outlined" Color="Color.Primary" Href="/explore">Explore</MudButton>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="pa-4 mb-6" Style="border:1px solid #E6EDF5; border-radius:16px;">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:700;">@_trip.Name</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@_trip.Destination</MudText>
+            <MudText Typo="Typo.body2" Class="mt-1">@($"{_trip.BasePrice:0.##} €") · @_trip.DurationDays days</MudText>
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_submitError))
+        {
+            <MudAlert Severity="Severity.Error" Dense="true" Class="mb-4">@_submitError</MudAlert>
+        }
+
+        <MudForm @ref="_form" @bind-IsValid="@_formIsValid">
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_billing.LegalName" Label="Legal name" Variant="Variant.Outlined" Required="true" RequiredError="Required" />
+                <MudTextField @bind-Value="_billing.AddressLine1" Label="Address line 1" Variant="Variant.Outlined" Required="true" RequiredError="Required" />
+                <MudTextField @bind-Value="_billing.AddressLine2" Label="Address line 2 (optional)" Variant="Variant.Outlined" />
+                <MudGrid Spacing="2">
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_billing.City" Label="City" Variant="Variant.Outlined" Required="true" RequiredError="Required" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_billing.PostalCode" Label="Postal code" Variant="Variant.Outlined" Required="true" RequiredError="Required" />
+                    </MudItem>
+                </MudGrid>
+                <MudSelect T="string" @bind-Value="_billing.Country" Label="Country" Variant="Variant.Outlined" Required="true" RequiredError="Pick a country" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var c in CountryOptions)
+                    {
+                        <MudSelectItem Value="@c">@c</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="_billing.Email" Label="Email" Variant="Variant.Outlined" Required="true" RequiredError="Required" InputType="InputType.Email" />
+                <MudTextField @bind-Value="_billing.Phone" Label="Phone (optional)" Variant="Variant.Outlined" />
+            </MudStack>
+        </MudForm>
+
+        <MudStack Row Spacing="2" Class="mt-6">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_submitting" OnClick="SubmitAsync">
+                <MudStack Row AlignItems="AlignItems.Center" Spacing="2">
+                    @if (_submitting)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" />
+                    }
+                    <MudText Typo="Typo.button">@(_submitting ? "Saving…" : "Complete booking")</MudText>
+                </MudStack>
+            </MudButton>
+            <MudButton Variant="Variant.Text" Color="Color.Default" Disabled="@_submitting" Href="@($"/trip/{TripId}")">Cancel</MudButton>
+        </MudStack>
+    }
+</MudContainer>
+
+@code {
+    public const string DefaultCountry = "Hungary";
+
+    private static readonly string[] CountryOptions =
+    [
+        "Hungary", "United Kingdom", "Germany", "France", "Italy", "Spain", "United States", "Japan", "Other"
+    ];
+
+    [Parameter] public int TripId { get; set; }
+
+    private MudForm? _form;
+    private bool _formIsValid = true;
+    private bool _loading = true;
+    private bool _submitting;
+    private string? _fatalError;
+    private string? _submitError;
+    private TripDto? _trip;
+    private string? _userId;
+    private TripBillingInput _billing = new() { Country = DefaultCountry };
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _fatalError = null;
+        _submitError = null;
+
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        _userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(_userId))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        try
+        {
+            _trip = await TripRepository.GetByIdAsync(TripId);
+            if (_trip is null)
+            {
+                return;
+            }
+
+            if (_trip.Status != TripStatus.Available)
+            {
+                _fatalError = "This trip is not available for new bookings.";
+                return;
+            }
+
+            var mine = await TripRepository.GetMyBookedTripsAsync(_userId);
+            if (mine.Any(t => t.Id == TripId))
+            {
+                _fatalError = "You already have a booking for this trip.";
+                return;
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        _submitError = null;
+        if (_form is null || string.IsNullOrWhiteSpace(_userId) || _trip is null)
+        {
+            return;
+        }
+
+        await _form.Validate();
+        if (!_form.IsValid)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_billing.Country))
+        {
+            _billing.Country = DefaultCountry;
+        }
+
+        _submitting = true;
+        try
+        {
+            var result = await TripRepository.BookTripAsync(TripId, _userId, _billing);
+            switch (result)
+            {
+                case TripBookingOperationResult.Success:
+                    Navigation.NavigateTo($"/book/complete/{TripId}");
+                    return;
+                case TripBookingOperationResult.TripNotFound:
+                    _submitError = "This trip could not be found.";
+                    break;
+                case TripBookingOperationResult.TripNotAvailable:
+                    _fatalError = "This trip is no longer available for booking.";
+                    _trip = null;
+                    break;
+                case TripBookingOperationResult.AlreadyBooked:
+                    _fatalError = "You already have a booking for this trip.";
+                    break;
+                case TripBookingOperationResult.IncompleteBilling:
+                    _submitError = "Please fill in all required billing fields.";
+                    break;
+                default:
+                    _submitError = "Could not complete booking. Please try again.";
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "BookTripAsync failed for trip {TripId}", TripId);
+            _submitError = HostEnvironment.IsDevelopment()
+                ? ex.GetBaseException().Message
+                : "Could not complete booking. Please try again.";
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+}

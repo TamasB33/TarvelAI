@@ -7,16 +7,18 @@ public static class TripMapper
 {
     public static TripDto ToDto(this Trip t) => new()
     {
-        Id           = t.Id,
-        Name         = t.Name,
-        Destination  = t.Destination,
-        Description  = t.Description,
-        ImageUrl     = t.ImageUrl,
-        BasePrice    = t.BasePrice,
-        DurationDays = t.DurationDays,
-        Status       = t.Status,
-        CreatedAt    = t.CreatedAt,
-        CreatedBy    = t.CreatedBy
+        Id                     = t.Id,
+        Name                   = t.Name,
+        Destination            = t.Destination,
+        Description            = t.Description,
+        ImageUrl               = t.ImageUrl,
+        BasePrice              = t.BasePrice,
+        DurationDays           = t.DurationDays,
+        Status                 = t.Status,
+        AdminHotelConfirmed    = t.AdminHotelConfirmed,
+        AdminAirlineConfirmed  = t.AdminAirlineConfirmed,
+        CreatedAt              = t.CreatedAt,
+        CreatedBy              = t.CreatedBy
     };
 
     public static Trip ToEntity(this CreateTripDto dto) => new()
@@ -27,10 +29,12 @@ public static class TripMapper
         ImageUrl     = dto.ImageUrl ?? "",
         BasePrice    = dto.BasePrice,
         DurationDays = dto.DurationDays,
-        Status       = dto.Status,
-        CreatedBy    = dto.CreatedBy,
-        CreatedAt    = DateTime.UtcNow,
-        UpdatedAt    = DateTime.UtcNow
+        Status                 = dto.Status,
+        AdminHotelConfirmed    = false,
+        AdminAirlineConfirmed  = false,
+        CreatedBy              = dto.CreatedBy,
+        CreatedAt              = DateTime.UtcNow,
+        UpdatedAt              = DateTime.UtcNow
     };
 
     public static void UpdateEntity(this UpdateTripDto dto, Trip trip)

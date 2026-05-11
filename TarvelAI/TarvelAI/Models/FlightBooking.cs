@@ -25,6 +25,10 @@ public class FlightBooking
     public int TripId { get; set; }
     public Trip Trip { get; set; } = null!;
 
+    // When set, user reservation; null = package template
+    public int? TripBookingId { get; set; }
+    public TripBooking? TripBooking { get; set; }
+
     // FK to Flight
     public int FlightId { get; set; }
     public Flight Flight { get; set; } = null!;

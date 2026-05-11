@@ -58,6 +58,13 @@ else
 
 @code {
     private List<FlightDto>? _flights;
+    private static readonly DialogOptions FlightDialogOptions = new()
+    {
+        MaxWidth = MaxWidth.ExtraLarge,
+        FullWidth = true,
+        CloseButton = true,
+        BackdropClick = false
+    };
 
     protected override async Task OnInitializedAsync() => await LoadFlights();
 
@@ -72,7 +79,7 @@ else
             { x => x.Title, "Add Flight" },
             { x => x.Form,  form }
         };
-        var dialog = await DialogService.ShowAsync<AdminFlightDialog>("Add Flight", parameters);
+        var dialog = await DialogService.ShowAsync<AdminFlightDialog>("Add Flight", parameters, FlightDialogOptions);
         var result = await dialog.Result;
 
         // FIX: explicit cast instead of pattern matching on Data
@@ -101,8 +108,7 @@ else
             { x => x.Title, "Edit Flight" },
             { x => x.Form,  form }
         };
-        var dialog = await DialogService.ShowAsync<AdminFlightDialog>("Edit Flight", parameters);
-        Console.WriteLine("Dialog shown, waiting for result...");
+        var dialog = await DialogService.ShowAsync<AdminFlightDialog>("Edit Flight", parameters, FlightDialogOptions);
         var result = await dialog.Result;
 
         // FIX: explicit cast instead of pattern matching on Data

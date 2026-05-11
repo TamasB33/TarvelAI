@@ -1,8 +1,15 @@
 @page "/trip/{Id:int}"
 @rendermode InteractiveServer
+@using System.Security.Claims
 @using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+@using TarvelAI.Repositories
+@using Microsoft.AspNetCore.Components.Authorization
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITripRepository TripRepository
+@inject IDialogService DialogService
 
 <PageTitle>Trip Details - TravelAI</PageTitle>
 
@@ -81,6 +88,44 @@
                     </MudPaper>
                 </MudItem>
             </MudGrid>
+
+                <MudDivider Class="my-4" />
+
+                <MudText Typo="Typo.h6" Style="font-weight:700;">Book this trip</MudText>
+                @if (!string.IsNullOrWhiteSpace(_bookError))
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_bookError</MudAlert>
+                }
+                @if (_trip.Status != TripStatus.Available)
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-2">
+                        This itinerary is not open for new bookings (current status: @_trip.Status.ToString()).
+                    </MudAlert>
+                }
+                else if (!_isAuthenticated)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">Sign in to reserve this trip and see it on My Trips.</MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Href="/login">Log in to book</MudButton>
+                }
+                else if (_isBooked)
+                {
+                    <MudAlert Severity="Severity.Success" Variant="Variant.Outlined" Dense="true" Class="mt-2">
+                        You already have a booking for this trip.
+                    </MudAlert>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" Href="/my-trips">View My Trips</MudButton>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">
+                        You will confirm on the next step, then enter invoicing details before the booking is finalized.
+                    </MudText>
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               Class="mt-3"
+                               OnClick="StartBookingFlowAsync">
+                        Book this trip
+                    </MudButton>
+                }
             </MudStack>
         </MudPaper>
 
@@ -93,7 +138,11 @@
 
     private bool _loading = true;
     private string? _error;
+    private string? _bookError;
     private TripDto? _trip;
+    private bool _isAuthenticated;
+    private bool _isBooked;
+    private string? _userId;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -104,6 +153,7 @@
     {
         _loading = true;
         _error = null;
+        _bookError = null;
         try
         {
             using var response = await Http.GetAsync($"/api/trips/{Id}");
@@ -120,6 +170,16 @@
             }
 
             _trip = await response.Content.ReadFromJsonAsync<TripDto>();
+
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            _isAuthenticated = state.User.Identity?.IsAuthenticated == true;
+            _userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            _isBooked = false;
+            if (_trip is not null && _isAuthenticated && !string.IsNullOrWhiteSpace(_userId))
+            {
+                var mine = await TripRepository.GetMyBookedTripsAsync(_userId);
+                _isBooked = mine.Any(t => t.Id == Id);
+            }
         }
         catch
         {
@@ -128,6 +188,27 @@
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task StartBookingFlowAsync()
+    {
+        _bookError = null;
+        if (_trip is null || string.IsNullOrWhiteSpace(_userId))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var confirmed = await DialogService.ShowMessageBox(
+            "Book this trip?",
+            "You will enter invoicing details on the next step. Your booking is only saved after you complete that form.",
+            yesText: "Continue",
+            cancelText: "Cancel");
+
+        if (confirmed == true)
+        {
+            Navigation.NavigateTo($"/book/checkout/{Id}");
         }
     }
 
