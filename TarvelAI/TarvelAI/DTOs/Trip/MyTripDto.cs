@@ -16,4 +16,7 @@ public sealed class MyTripDto
     public DateTime BookedAtUtc { get; set; }
     public int HotelBookingsCount { get; set; }
     public int FlightBookingsCount { get; set; }
+
+    /// <summary>Earliest hotel check-in or flight departure (UTC calendar day) for this user's booking; null if no itinerary rows.</summary>
+    public DateOnly? ItineraryStartDate { get; set; }
 }

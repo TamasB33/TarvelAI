@@ -12,6 +12,8 @@ public class TripDto
     public decimal    BasePrice    { get; set; }
     public int        DurationDays { get; set; }
     public TripStatus Status       { get; set; }
+    public bool       AdminHotelConfirmed   { get; set; }
+    public bool       AdminAirlineConfirmed { get; set; }
     public DateTime   CreatedAt    { get; set; }
     public string     CreatedBy    { get; set; } = "";
 }

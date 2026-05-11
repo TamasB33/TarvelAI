@@ -38,8 +38,8 @@ public static class TripEndpoints
             return Results.Ok(trips);
         });
 
-        // POST /api/trips/{id}/book
-        readGroup.MapPost("/{id:int}/book", async (int id, ClaimsPrincipal user, ITripRepository repo) =>
+        // POST /api/trips/{id}/book — optional JSON body: TripBillingInput (omit body to book without invoice row)
+        readGroup.MapPost("/{id:int}/book", async (int id, ClaimsPrincipal user, ITripRepository repo, HttpRequest request, CancellationToken cancellationToken) =>
         {
             var userId = user.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrWhiteSpace(userId))
@@ -47,12 +47,20 @@ public static class TripEndpoints
                 return Results.Unauthorized();
             }
 
-            var result = await repo.BookTripAsync(id, userId);
+            TripBillingInput? billing = null;
+            if (request.ContentLength is > 0 && request.HasJsonContentType())
+            {
+                billing = await request.ReadFromJsonAsync<TripBillingInput>(cancellationToken: cancellationToken);
+            }
+
+            var result = await repo.BookTripAsync(id, userId, billing);
             return result switch
             {
                 TripBookingOperationResult.Success => Results.Ok(new { message = "Trip booked successfully." }),
                 TripBookingOperationResult.TripNotFound => Results.NotFound(new { message = "Trip not found." }),
+                TripBookingOperationResult.TripNotAvailable => Results.BadRequest(new { message = "This trip is not available for booking." }),
                 TripBookingOperationResult.AlreadyBooked => Results.Conflict(new { message = "Trip is already booked by this user." }),
+                TripBookingOperationResult.IncompleteBilling => Results.BadRequest(new { message = "Billing details are incomplete." }),
                 _ => Results.BadRequest()
             };
         });
@@ -72,6 +80,10 @@ public static class TripEndpoints
                 TripBookingOperationResult.Success => Results.NoContent(),
                 TripBookingOperationResult.TripNotFound => Results.NotFound(new { message = "Trip not found." }),
                 TripBookingOperationResult.BookingNotFound => Results.NotFound(new { message = "Booking not found for this user." }),
+                TripBookingOperationResult.CancellationNotAllowedTripInProgress => Results.Conflict(new
+                {
+                    message = "Confirmed trips cannot be cancelled on or after the first travel date."
+                }),
                 _ => Results.BadRequest()
             };
         });

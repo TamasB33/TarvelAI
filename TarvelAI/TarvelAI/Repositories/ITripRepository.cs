@@ -9,15 +9,33 @@ public interface ITripRepository
     Task<TripDto>              CreateAsync(CreateTripDto dto);
     Task<TripDto?>             UpdateAsync(int id, UpdateTripDto dto);
     Task<bool>                 DeleteAsync(int id);
-    Task<TripBookingOperationResult> BookTripAsync(int tripId, string userId);
+    Task<TripBookingOperationResult> BookTripAsync(int tripId, string userId, TripBillingInput? billing = null);
     Task<TripBookingOperationResult> UnbookTripAsync(int tripId, string userId);
     Task<IEnumerable<MyTripDto>> GetMyBookedTripsAsync(string userId);
+
+    Task<IReadOnlyList<PlanningTripAdminDto>> GetPlanningTripsForAdminAsync();
+    Task<TripPlanningAdminResult> AdminConfirmPlanningHotelAsync(int tripId);
+    Task<TripPlanningAdminResult> AdminConfirmPlanningAirlineAsync(int tripId);
+    Task<TripPlanningAdminResult> AdminConfirmPlanningTripAsync(int tripId);
 }
 
 public enum TripBookingOperationResult
 {
     Success,
     TripNotFound,
+    TripNotAvailable,
     AlreadyBooked,
-    BookingNotFound
+    IncompleteBilling,
+    BookingNotFound,
+    /// <summary>Confirmed trips cannot be cancelled on or after the itinerary start date (UTC).</summary>
+    CancellationNotAllowedTripInProgress
+}
+
+public enum TripPlanningAdminResult
+{
+    Success,
+    TripNotFound,
+    NotInPlanningState,
+    FinalRequiresBothConfirmations,
+    AirlineRequiresHotelConfirmation
 }

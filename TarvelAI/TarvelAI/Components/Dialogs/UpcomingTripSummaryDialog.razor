@@ -1,0 +1,36 @@
+@namespace TarvelAI.Components.Dialogs
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Models
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h6" Style="font-weight:700;">@Trip.Name</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@Trip.Destination</MudText>
+            <MudChip T="string" Size="Size.Small" Color="@StatusColor(Trip.Status)">@Trip.Status</MudChip>
+            <MudDivider Class="my-2" />
+            <MudText Typo="Typo.body2">Booked @Trip.BookedAtUtc.ToUniversalTime().ToString("yyyy-MM-dd HH:mm") UTC</MudText>
+            <MudText Typo="Typo.body2">@Trip.DurationDays days · @Trip.HotelBookingsCount hotels · @Trip.FlightBookingsCount flights</MudText>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Close">Close</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="@($"/trip/{Trip.Id}")">Open full details</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+    [Parameter] public MyTripDto Trip { get; set; } = default!;
+
+    private void Close() => MudDialog.Cancel();
+
+    private static Color StatusColor(TripStatus status) => status switch
+    {
+        TripStatus.Confirmed => Color.Success,
+        TripStatus.Planning => Color.Info,
+        TripStatus.Completed => Color.Primary,
+        TripStatus.Cancelled => Color.Error,
+        _ => Color.Default
+    };
+}

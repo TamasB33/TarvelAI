@@ -1,0 +1,67 @@
+@page "/book/complete/{TripId:int}"
+@rendermode InteractiveServer
+@attribute [Authorize]
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+@using TarvelAI.Repositories
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ITripRepository TripRepository
+
+<PageTitle>Booking confirmed - TravelAI</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="py-12">
+    @if (_checking)
+    {
+        <MudProgressLinear Indeterminate Color="Color.Primary" />
+    }
+    else
+    {
+        <MudPaper Elevation="0" Class="pa-8" Style="border:1px solid #E6EDF5; border-radius:20px; text-align:center;">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Style="font-size:4.5rem;" Class="mb-4" />
+            <MudText Typo="Typo.h5" Style="font-weight:700; color:#0F2A43;">Your trip has been booked successfully</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2 mb-6">
+                @(!string.IsNullOrWhiteSpace(_tripName) ? _tripName : "You can review details anytime from My Trips.")
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large" Href="/my-trips" FullWidth="true" Style="text-transform:none; font-weight:600;">
+                Go back to My Trips
+            </MudButton>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    [Parameter] public int TripId { get; set; }
+
+    private bool _checking = true;
+    private string? _tripName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthStateProvider.GetAuthenticationStateAsync();
+        if (state.User.Identity?.IsAuthenticated != true)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        var mine = (await TripRepository.GetMyBookedTripsAsync(userId)).ToList();
+        var row = mine.FirstOrDefault(t => t.Id == TripId);
+        if (row is null)
+        {
+            Navigation.NavigateTo("/my-trips");
+            return;
+        }
+
+        _tripName = row.Name;
+        _checking = false;
+    }
+}

@@ -1,0 +1,156 @@
+@page "/admin/planning-trips"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using TarvelAI.DTOs.Trip
+@using TarvelAI.Repositories
+@inject ITripRepository TripRepository
+@inject ISnackbar Snackbar
+
+<PageTitle>Admin - Planning trips</PageTitle>
+
+<MudStack Row AlignItems="AlignItems.Center" Class="mb-6">
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Planning trips</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Refresh"
+               OnClick="LoadAsync">
+        Refresh
+    </MudButton>
+</MudStack>
+
+<MudText Typo="Typo.body2" Class="mb-4" Style="opacity:0.85;">
+    Customer bookings move the catalog trip to Planning. Confirm with hotel, then airline, then confirm the trip to set status to Confirmed.
+</MudText>
+
+@if (_rows is null)
+{
+    <MudProgressLinear Indeterminate Color="Color.Primary" />
+}
+else if (_rows.Count == 0)
+{
+    <MudAlert Severity="Severity.Info" Variant="Variant.Filled">No trips are waiting in the planning queue.</MudAlert>
+}
+else
+{
+    <MudTable Items="_rows" Hover Striped Elevation="2" Style="border-radius:12px;" Dense>
+        <HeaderContent>
+            <MudTh>Trip</MudTh>
+            <MudTh>Bookings</MudTh>
+            <MudTh>Hotel</MudTh>
+            <MudTh>Airline</MudTh>
+            <MudTh>Actions</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Trip">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@context.Name</MudText>
+                <MudText Typo="Typo.caption">@context.Destination</MudText>
+            </MudTd>
+            <MudTd DataLabel="Bookings">@context.ActiveBookingCount</MudTd>
+            <MudTd DataLabel="Hotel">
+                @if (context.AdminHotelConfirmed)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Check">Done</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">Pending</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Airline">
+                @if (context.AdminAirlineConfirmed)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success" Icon="@Icons.Material.Filled.Check">Done</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">Pending</MudChip>
+                }
+            </MudTd>
+            <MudTd DataLabel="Actions">
+                <MudStack Row Spacing="1" Wrap="Wrap.Wrap">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                               Disabled="context.AdminHotelConfirmed"
+                               OnClick="() => ConfirmHotelAsync(context.Id)">
+                        Confirm with hotel
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Secondary" Size="Size.Small"
+                               Disabled="!context.AdminHotelConfirmed || context.AdminAirlineConfirmed"
+                               OnClick="() => ConfirmAirlineAsync(context.Id)">
+                        Confirm with airline
+                    </MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                               Disabled="!context.AdminHotelConfirmed || !context.AdminAirlineConfirmed"
+                               OnClick="() => ConfirmTripAsync(context.Id)">
+                        Confirm trip
+                    </MudButton>
+                </MudStack>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+
+@code {
+    private List<PlanningTripAdminDto>? _rows;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _rows = null;
+        StateHasChanged();
+        var list = await TripRepository.GetPlanningTripsForAdminAsync();
+        _rows = list.ToList();
+    }
+
+    private async Task ConfirmHotelAsync(int tripId)
+    {
+        var r = await TripRepository.AdminConfirmPlanningHotelAsync(tripId);
+        if (r == TripPlanningAdminResult.Success)
+        {
+            Snackbar.Add("Hotel confirmation recorded.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(FormatError(r), Severity.Warning);
+        }
+    }
+
+    private async Task ConfirmAirlineAsync(int tripId)
+    {
+        var r = await TripRepository.AdminConfirmPlanningAirlineAsync(tripId);
+        if (r == TripPlanningAdminResult.Success)
+        {
+            Snackbar.Add("Airline confirmation recorded.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(FormatError(r), Severity.Warning);
+        }
+    }
+
+    private async Task ConfirmTripAsync(int tripId)
+    {
+        var r = await TripRepository.AdminConfirmPlanningTripAsync(tripId);
+        if (r == TripPlanningAdminResult.Success)
+        {
+            Snackbar.Add("Trip confirmed.", Severity.Success);
+            await LoadAsync();
+        }
+        else
+        {
+            Snackbar.Add(FormatError(r), Severity.Warning);
+        }
+    }
+
+    private static string FormatError(TripPlanningAdminResult r) => r switch
+    {
+        TripPlanningAdminResult.TripNotFound => "Trip was not found.",
+        TripPlanningAdminResult.NotInPlanningState => "Trip is not in Planning state.",
+        TripPlanningAdminResult.FinalRequiresBothConfirmations => "Confirm hotel and airline first.",
+        TripPlanningAdminResult.AirlineRequiresHotelConfirmation => "Confirm with hotel before airline.",
+        _ => "Action could not be completed."
+    };
+}

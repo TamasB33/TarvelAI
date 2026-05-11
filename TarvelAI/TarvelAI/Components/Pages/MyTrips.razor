@@ -10,6 +10,7 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ITripRepository TripRepository
+@inject IDialogService DialogService
 
 <PageTitle>My Trips - TravelAI</PageTitle>
 
@@ -74,34 +75,51 @@
 
                 <MudItem xs="12" md="8">
                     <MudPaper Elevation="0" Class="pa-4" Style="border:1px solid #E6EDF5; border-radius:16px;">
-                        <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight:700;">Upcoming Trip</MudText>
-                        @if (_upcomingTrip is null)
+                        <MudText Typo="Typo.h6" Class="mb-2" Style="font-weight:700;">Upcoming trips</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">Auto-advances every few seconds. Use arrows or tap a trip for a quick summary.</MudText>
+                        @if (_ongoingTrips.Count == 0)
                         {
                             <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">No upcoming trips yet. Book one from Explore.</MudAlert>
                         }
                         else
                         {
-                            <MudCard Elevation="0" Style="border:1px solid #EDF2F7;">
-                                <MudCardMedia Image="@SafeImage(_upcomingTrip.ImageUrl)" Height="220" />
-                                <MudCardContent>
-                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                                        <MudText Typo="Typo.h6" Style="font-weight:700;">@_upcomingTrip.Name</MudText>
-                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(_upcomingTrip.Status)">@_upcomingTrip.Status</MudChip>
-                                    </MudStack>
-                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_upcomingTrip.Destination</MudText>
-                                    <MudText Typo="Typo.body2" Class="mt-2">@_upcomingTrip.Description</MudText>
-                                    <MudStack Row Spacing="2" Class="mt-3">
-                                        <MudChip T="string" Variant="Variant.Outlined">Booked @ToRelativeDate(_upcomingTrip.BookedAtUtc)</MudChip>
-                                        <MudChip T="string" Variant="Variant.Outlined">@_upcomingTrip.DurationDays days</MudChip>
-                                        <MudChip T="string" Variant="Variant.Outlined">@_upcomingTrip.HotelBookingsCount hotel bookings</MudChip>
-                                        <MudChip T="string" Variant="Variant.Outlined">@_upcomingTrip.FlightBookingsCount flight bookings</MudChip>
-                                    </MudStack>
-                                </MudCardContent>
-                                <MudCardActions>
-                                    <MudButton Color="Color.Primary" Variant="Variant.Filled" Href="@($"/trip/{_upcomingTrip.Id}")">View details</MudButton>
-                                    <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => UnbookAsync(_upcomingTrip.Id))">Unbook</MudButton>
-                                </MudCardActions>
-                            </MudCard>
+                            <MudCarousel TData="object"
+                                         @bind-SelectedIndex="_carouselIndex"
+                                         Class="mud-width-full"
+                                         Style="height:320px;"
+                                         AutoCycle="true"
+                                         AutoCycleTime="@TimeSpan.FromSeconds(5)"
+                                         ShowArrows="true"
+                                         ShowBullets="true"
+                                         BulletsColor="Color.Primary">
+                                @foreach (var trip in _ongoingTrips)
+                                {
+                                    <MudCarouselItem>
+                                        <MudCard Elevation="0" Style="height:100%; border:1px solid #EDF2F7;">
+                                            <div @onclick="@(() => OpenSummaryAsync(trip))" style="cursor:pointer;">
+                                                <MudCardMedia Image="@SafeImage(trip.ImageUrl)" Height="180" />
+                                                <MudCardContent>
+                                                    <MudStack Row Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                                                        <MudText Typo="Typo.h6" Style="font-weight:700;">@trip.Name</MudText>
+                                                        <MudChip T="string" Size="Size.Small" Color="@StatusColor(trip.Status)">@trip.Status</MudChip>
+                                                    </MudStack>
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@trip.Destination</MudText>
+                                                    <MudStack Row Spacing="1" Class="mt-2" Style="flex-wrap:wrap;">
+                                                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">Booked @ToRelativeDate(trip.BookedAtUtc)</MudChip>
+                                                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@trip.DurationDays days</MudChip>
+                                                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@trip.HotelBookingsCount hotels</MudChip>
+                                                        <MudChip T="string" Variant="Variant.Outlined" Size="Size.Small">@trip.FlightBookingsCount flights</MudChip>
+                                                    </MudStack>
+                                                </MudCardContent>
+                                            </div>
+                                            <MudCardActions>
+                                                <MudButton Variant="Variant.Text" Color="Color.Primary" Href="@($"/trip/{trip.Id}")">View details</MudButton>
+                                                <TripUnbookButton Trip="trip" Variant="Variant.Text" OnUnbook="UnbookAsync" />
+                                            </MudCardActions>
+                                        </MudCard>
+                                    </MudCarouselItem>
+                                }
+                            </MudCarousel>
                         }
                     </MudPaper>
                 </MudItem>
@@ -146,7 +164,7 @@
                                 </MudCardContent>
                                 <MudCardActions>
                                     <MudButton Color="Color.Primary" Variant="Variant.Text" Href="@($"/trip/{trip.Id}")">View details</MudButton>
-                                    <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => UnbookAsync(trip.Id))">Unbook</MudButton>
+                                    <TripUnbookButton Trip="trip" Variant="Variant.Text" OnUnbook="UnbookAsync" />
                                 </MudCardActions>
                             </MudCard>
                         </MudItem>
@@ -181,7 +199,7 @@
                                 </MudCardContent>
                                 <MudCardActions>
                                     <MudButton Color="Color.Primary" Variant="Variant.Text" Href="@($"/trip/{trip.Id}")">View details</MudButton>
-                                    <MudButton Color="Color.Error" Variant="Variant.Text" OnClick="@(() => UnbookAsync(trip.Id))">Unbook</MudButton>
+                                    <TripUnbookButton Trip="trip" Variant="Variant.Text" OnUnbook="UnbookAsync" />
                                 </MudCardActions>
                             </MudCard>
                         </MudItem>
@@ -199,7 +217,7 @@
     private List<MyTripDto> _myTrips = [];
     private List<MyTripDto> _ongoingTrips = [];
     private List<MyTripDto> _pastTrips = [];
-    private MyTripDto? _upcomingTrip;
+    private int _carouselIndex;
     private string? _userId;
 
     protected override async Task OnInitializedAsync()
@@ -247,7 +265,7 @@
                 .OrderByDescending(t => t.BookedAtUtc)
                 .ToList();
 
-            _upcomingTrip = _ongoingTrips.FirstOrDefault() ?? _myTrips.OrderByDescending(t => t.BookedAtUtc).FirstOrDefault();
+            _carouselIndex = 0;
         }
         catch
         {
@@ -274,13 +292,25 @@
             _error = result switch
             {
                 TripBookingOperationResult.TripNotFound => "Trip was not found.",
+                TripBookingOperationResult.TripNotAvailable => "This trip is no longer available to book.",
                 TripBookingOperationResult.BookingNotFound => "This trip is not currently booked.",
+                TripBookingOperationResult.CancellationNotAllowedTripInProgress =>
+                    "This confirmed trip can no longer be cancelled because travel has already started.",
                 _ => "Could not unbook this trip. Please try again."
             };
             return;
         }
 
         await LoadAsync();
+    }
+
+    private async Task OpenSummaryAsync(MyTripDto trip)
+    {
+        var parameters = new DialogParameters<UpcomingTripSummaryDialog>
+        {
+            { x => x.Trip, trip }
+        };
+        await DialogService.ShowAsync<UpcomingTripSummaryDialog>("Trip summary", parameters);
     }
 
     private static string SafeImage(string? url)
