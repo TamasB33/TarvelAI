@@ -1,24 +1,59 @@
+@using TarvelAI.DTOs.Flight
+@using TarvelAI.DTOs.Hotel
 @using TarvelAI.DTOs.Trip
 @using TarvelAI.Models
+@using TarvelAI.Repositories
+@inject IHotelRepository HotelRepository
+@inject IFlightRepository FlightRepository
+@inject ISnackbar Snackbar
 
-<MudDialog MaxWidth="false" FullWidth="true" Style="width:1200px;max-width:98vw;">
+<MudDialog maxwidth="MaxWidth.False" fullwidth="true" Style="width:1200px;max-width:98vw;">
     <TitleContent>
         <MudText Typo="Typo.h6">@Title</MudText>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
+            <MudText Typo="Typo.subtitle2" Class="mud-text-secondary">
+                Package catalog: choose an existing hotel and flight. Template booking rows are created automatically from the trip price and duration.
+            </MudText>
+            <MudSelect T="int?"
+                       Value="_selectedHotelId"
+                       ValueChanged="OnHotelChanged"
+                       Label="Hotel (catalog)"
+                       Variant="Variant.Outlined"
+                       Dense="false"
+                       Placeholder="Select">
+                @if (_hotels.Count == 0)
+                {
+                    <MudSelectItem Value="@((int?)null)" Disabled="true">No hotels in catalog</MudSelectItem>
+                }
+                @foreach (var h in _hotels)
+                {
+                    <MudSelectItem Value="@((int?)h.Id)">@h.Name (@h.City, @h.Country)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudSelect T="int?"
+                       @bind-Value="_selectedFlightId"
+                       Label="Flight (catalog)"
+                       Variant="Variant.Outlined"
+                       Placeholder="Select"
+                       Disabled="@(!_selectedHotelId.HasValue)">
+                @if (_selectedHotelId.HasValue && _filteredFlights.Count == 0)
+                {
+                    <MudSelectItem Value="@((int?)null)" Disabled="true">No flights for selected hotel country</MudSelectItem>
+                }
+                @foreach (var f in _filteredFlights)
+                {
+                    <MudSelectItem Value="@((int?)f.Id)">@f.FlightNumber — @f.Airline (@f.OriginAirport → @f.DestinationAirport)</MudSelectItem>
+                }
+            </MudSelect>
+            <MudDivider Class="my-2" />
             <MudTextField @bind-Value="Form.Name"        Label="Name"        Variant="Variant.Outlined" />
             <MudTextField @bind-Value="Form.Destination" Label="Destination" Variant="Variant.Outlined" />
             <MudTextField @bind-Value="Form.Description" Label="Description" Variant="Variant.Outlined" Lines="3" />
             <MudTextField @bind-Value="Form.ImageUrl"    Label="Image URL"   Variant="Variant.Outlined" />
             <MudNumericField @bind-Value="Form.BasePrice"    Label="Base Price ($)"  Variant="Variant.Outlined" Min="0" Step="0.01m" />
             <MudNumericField @bind-Value="Form.DurationDays" Label="Duration (days)" Variant="Variant.Outlined" Min="1" Max="365" />
-            <MudSelect @bind-Value="Form.Status" Label="Status" Variant="Variant.Outlined">
-                @foreach (TripStatus s in Enum.GetValues(typeof(TripStatus)))
-                {
-                    <MudSelectItem Value="s">@s</MudSelectItem>
-                }
-            </MudSelect>
         </MudStack>
     </DialogContent>
     <DialogActions>
@@ -32,6 +67,114 @@
     [Parameter] public string Title { get; set; } = "Trip";
     [Parameter] public CreateTripDto Form { get; set; } = new() { Name = "", Destination = "", CreatedBy = "" };
 
+    private readonly List<HotelDto> _hotels = [];
+    private readonly List<FlightDto> _flights = [];
+    private readonly Dictionary<string, string> _airportCountryMap = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["CDG"] = "France",
+        ["FCO"] = "Italy",
+        ["BER"] = "Germany",
+        ["MAD"] = "Spain",
+        ["OPO"] = "Portugal",
+        ["ARN"] = "Sweden",
+        ["AMS"] = "Netherlands",
+        ["ZRH"] = "Switzerland",
+        ["WAW"] = "Poland",
+        ["VIE"] = "Austria",
+        ["BRU"] = "Belgium",
+        ["ATH"] = "Greece",
+        ["DUB"] = "Ireland",
+        ["PRG"] = "Czech Republic",
+        ["CPH"] = "Denmark",
+        ["HEL"] = "Finland",
+        ["DBV"] = "Croatia",
+        ["BUD"] = "Hungary"
+    };
+
+    private int? _selectedHotelId;
+    private int? _selectedFlightId;
+    private bool _selectionsInitialized;
+    private List<FlightDto> _filteredFlights = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var hotels = await HotelRepository.GetAllAsync();
+            _hotels.Clear();
+            _hotels.AddRange(hotels.OrderBy(h => h.Name));
+
+            var flights = await FlightRepository.GetAllAsync();
+            _flights.Clear();
+            _flights.AddRange(flights.OrderBy(f => f.FlightNumber));
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Could not load hotel/flight catalog: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_selectionsInitialized) return;
+        _selectedHotelId = Form.TemplateHotelId > 0 ? Form.TemplateHotelId : null;
+        _selectedFlightId = Form.TemplateFlightId > 0 ? Form.TemplateFlightId : null;
+        RefreshFilteredFlights();
+        _selectionsInitialized = true;
+    }
+
     void Cancel() => MudDialog.Cancel();
-    void Submit() => MudDialog.Close(DialogResult.Ok(Form));
+
+    private Task OnHotelChanged(int? hotelId)
+    {
+        if (_selectedHotelId == hotelId) return Task.CompletedTask;
+
+        _selectedHotelId = hotelId;
+        RefreshFilteredFlights();
+
+        if (_selectedFlightId.HasValue && _filteredFlights.All(f => f.Id != _selectedFlightId.Value))
+            _selectedFlightId = null;
+
+        return Task.CompletedTask;
+    }
+
+    private void RefreshFilteredFlights()
+    {
+        if (!_selectedHotelId.HasValue)
+        {
+            _filteredFlights = [];
+            return;
+        }
+
+        var selectedHotel = _hotels.FirstOrDefault(h => h.Id == _selectedHotelId.Value);
+        if (selectedHotel is null)
+        {
+            _filteredFlights = [];
+            return;
+        }
+
+        _filteredFlights = _flights
+            .Where(f => TryGetDestinationCountry(f, out var country)
+                        && string.Equals(country, selectedHotel.Country, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private bool TryGetDestinationCountry(FlightDto flight, out string country) =>
+        _airportCountryMap.TryGetValue(flight.DestinationAirport, out country!);
+
+    void Submit()
+    {
+        if (!_selectedHotelId.HasValue || !_selectedFlightId.HasValue)
+        {
+            Snackbar.Add("Select both a hotel and a flight from the catalog.", Severity.Warning);
+            return;
+        }
+
+        Form.TemplateHotelId = _selectedHotelId.Value;
+        Form.TemplateFlightId = _selectedFlightId.Value;
+        MudDialog.Close(DialogResult.Ok(Form));
+    }
 }

@@ -49,7 +49,7 @@ else
             </MudTd>
             <MudTd>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Color="Color.Primary"
-                               OnClick="() => OpenEditDialog(context)" />
+                               OnClick="@(async () => await OpenEditDialog(context))" />
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
                                OnClick="() => DeleteTrip(context.Id)" />
             </MudTd>
@@ -76,7 +76,13 @@ else
 
     private async Task OpenCreateDialog()
     {
-        var form = new CreateTripDto { Name = "", Destination = "", CreatedBy = _adminUserId };
+        var form = new CreateTripDto
+        {
+            Name = "",
+            Destination = "",
+            CreatedBy = _adminUserId,
+            Status = TripStatus.Available
+        };
         var parameters = new DialogParameters<AdminTripDialog>
         {
             { x => x.Title, "Add Trip" },
@@ -86,15 +92,24 @@ else
         var result = await dialog.Result;
         if (result is { Canceled: false, Data: CreateTripDto dto })
         {
-            dto.CreatedBy = _adminUserId;
-            await TripRepository.CreateAsync(dto);
-            Snackbar.Add("Trip created.", Severity.Success);
-            await LoadTrips();
+            try
+            {
+                dto.CreatedBy = _adminUserId;
+                dto.Status = TripStatus.Available;
+                await TripRepository.CreateAsync(dto);
+                Snackbar.Add("Trip created.", Severity.Success);
+                await LoadTrips();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
     }
 
     private async Task OpenEditDialog(TripDto trip)
     {
+        var (hotelId, flightId) = await TripRepository.GetTemplateLinkIdsAsync(trip.Id);
         var form = new CreateTripDto
         {
             Name         = trip.Name,
@@ -104,7 +119,9 @@ else
             BasePrice    = trip.BasePrice,
             DurationDays = trip.DurationDays,
             Status       = trip.Status,
-            CreatedBy    = trip.CreatedBy
+            CreatedBy    = trip.CreatedBy,
+            TemplateHotelId  = hotelId ?? 0,
+            TemplateFlightId = flightId ?? 0
         };
         var parameters = new DialogParameters<AdminTripDialog>
         {
@@ -123,12 +140,21 @@ else
                 ImageUrl     = dto.ImageUrl,
                 BasePrice    = dto.BasePrice,
                 DurationDays = dto.DurationDays,
-                Status       = dto.Status
+                Status       = dto.Status,
+                TemplateHotelId  = dto.TemplateHotelId,
+                TemplateFlightId = dto.TemplateFlightId
             };
-            var updated = await TripRepository.UpdateAsync(trip.Id, update);
-            if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
-            Snackbar.Add("Trip updated.", Severity.Success);
-            await LoadTrips();
+            try
+            {
+                var updated = await TripRepository.UpdateAsync(trip.Id, update);
+                if (updated is null) { Snackbar.Add("Something went wrong.", Severity.Error); return; }
+                Snackbar.Add("Trip updated.", Severity.Success);
+                await LoadTrips();
+            }
+            catch (InvalidOperationException ex)
+            {
+                Snackbar.Add(ex.Message, Severity.Warning);
+            }
         }
     }
 

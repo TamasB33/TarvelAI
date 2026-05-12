@@ -4,6 +4,7 @@
 @using TarvelAI.DTOs.Hotel
 @using TarvelAI.DTOs.Trip
 @using TarvelAI.Models
+@using TarvelAI.Services
 @inject HttpClient Http
 @inject NavigationManager Navigation
 
@@ -43,6 +44,36 @@
                               AdornmentIcon="@Icons.Material.Filled.Search"
                               Immediate="true" />
             </MudItem>
+            @if (ActiveMode == ExploreMode.Trips)
+            {
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string"
+                               Value="_selectedCountry"
+                               ValueChanged="OnCountryChanged"
+                               Variant="Variant.Outlined"
+                               Label="Country (Europe)">
+                        <MudSelectItem Value="@string.Empty">All countries</MudSelectItem>
+                        @foreach (var country in EuropeDestinationCatalog.Countries)
+                        {
+                            <MudSelectItem Value="@country">@country</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="string"
+                               Value="_selectedCity"
+                               ValueChanged="OnCityChanged"
+                               Variant="Variant.Outlined"
+                               Label="City"
+                               Disabled="@string.IsNullOrWhiteSpace(_selectedCountry)">
+                        <MudSelectItem Value="@string.Empty">All cities</MudSelectItem>
+                        @foreach (var city in AvailableCities)
+                        {
+                            <MudSelectItem Value="@city">@city</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            }
         </MudGrid>
     </MudPaper>
 
@@ -174,12 +205,16 @@
     private string? _error;
     private string _search = "";
     private string _sortBy = "relevance";
+    private string _selectedCountry = "";
+    private string _selectedCity = "";
     private List<TripDto> _trips = [];
     private List<HotelDto> _hotels = [];
+    private IReadOnlyList<string> AvailableCities => EuropeDestinationCatalog.GetCities(_selectedCountry);
 
     private IEnumerable<TripDto> FilteredTrips => SortTrips(
         _trips.Where(t =>
             t.Status == TripStatus.Available &&
+            CountryCityMatch(t.Destination) &&
             (SearchMatch(t.Name) ||
              SearchMatch(t.Destination) ||
              SearchMatch(t.Description))));
@@ -235,11 +270,49 @@
 
     private void OnSortChanged(string value) => _sortBy = value;
 
+    private void OnCountryChanged(string value)
+    {
+        _selectedCountry = value;
+        if (!AvailableCities.Contains(_selectedCity, StringComparer.OrdinalIgnoreCase))
+            _selectedCity = "";
+    }
+
+    private void OnCityChanged(string value) => _selectedCity = value;
+
     private bool SearchMatch(string? value)
     {
         if (string.IsNullOrWhiteSpace(_search)) return true;
         return !string.IsNullOrWhiteSpace(value) &&
                value.Contains(_search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool CountryCityMatch(string? destination)
+    {
+        if (string.IsNullOrWhiteSpace(_selectedCountry) && string.IsNullOrWhiteSpace(_selectedCity))
+            return true;
+
+        var (city, country) = ParseDestination(destination);
+
+        if (!string.IsNullOrWhiteSpace(_selectedCountry)
+            && !string.Equals(country, _selectedCountry, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (!string.IsNullOrWhiteSpace(_selectedCity)
+            && !string.Equals(city, _selectedCity, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        return true;
+    }
+
+    private static (string? City, string? Country) ParseDestination(string? destination)
+    {
+        if (string.IsNullOrWhiteSpace(destination)) return (null, null);
+
+        var parts = destination.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2)
+            return (parts[0], parts[^1]);
+
+        return (destination.Trim(), null);
     }
 
     private IEnumerable<TripDto> SortTrips(IEnumerable<TripDto> source) =>

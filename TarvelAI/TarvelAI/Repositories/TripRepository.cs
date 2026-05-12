@@ -32,8 +32,27 @@ public class TripRepository(AppDbContext db) : ITripRepository
         return MapToDto(trip, displayNames);
     }
 
+    public async Task<(int? HotelId, int? FlightId)> GetTemplateLinkIdsAsync(int tripId)
+    {
+        var hotelId = await db.HotelBookings.AsNoTracking()
+            .Where(h => h.TripId == tripId && h.TripBookingId == null)
+            .OrderBy(h => h.Id)
+            .Select(h => (int?)h.HotelId)
+            .FirstOrDefaultAsync();
+
+        var flightId = await db.FlightBookings.AsNoTracking()
+            .Where(f => f.TripId == tripId && f.TripBookingId == null)
+            .OrderBy(f => f.Id)
+            .Select(f => (int?)f.FlightId)
+            .FirstOrDefaultAsync();
+
+        return (hotelId, flightId);
+    }
+
     public async Task<TripDto> CreateAsync(CreateTripDto dto)
     {
+        await EnsureValidTemplateReferencesAsync(dto.TemplateHotelId, dto.TemplateFlightId);
+
         var trip = new Models.Trip
         {
             Name = dto.Name,
@@ -51,15 +70,53 @@ public class TripRepository(AppDbContext db) : ITripRepository
         };
         db.Trips.Add(trip);
         await db.SaveChangesAsync();
+
+        AddDefaultTemplateBookings(trip.Id, dto.TemplateHotelId, dto.TemplateFlightId, trip.BasePrice, trip.DurationDays);
+        await db.SaveChangesAsync();
+
         return await GetByIdAsync(trip.Id) ?? throw new InvalidOperationException("Created trip could not be loaded.");
     }
 
     public async Task<TripDto?> UpdateAsync(int id, UpdateTripDto dto)
     {
+        await EnsureValidTemplateReferencesAsync(dto.TemplateHotelId, dto.TemplateFlightId);
+
         var trip = await db.Trips.FirstOrDefaultAsync(t => t.Id == id);
         if (trip is null) return null;
 
+        var (currentHotelId, currentFlightId) = await GetTemplateLinkIdsAsync(id);
+        var needTemplateWrite = dto.TemplateHotelId != currentHotelId
+            || dto.TemplateFlightId != currentFlightId
+            || currentHotelId is null
+            || currentFlightId is null;
+
+        if (needTemplateWrite)
+        {
+            var hasBookings = await db.TripBookings.AnyAsync(tb => tb.TripId == id);
+            if (hasBookings)
+            {
+                throw new InvalidOperationException(
+                    "Cannot change or add package hotel/flight while the trip has user bookings.");
+            }
+
+            var oldHotels = await db.HotelBookings.Where(h => h.TripId == id && h.TripBookingId == null).ToListAsync();
+            var oldFlights = await db.FlightBookings.Where(f => f.TripId == id && f.TripBookingId == null).ToListAsync();
+            db.HotelBookings.RemoveRange(oldHotels);
+            db.FlightBookings.RemoveRange(oldFlights);
+            await db.SaveChangesAsync();
+
+            AddDefaultTemplateBookings(id, dto.TemplateHotelId, dto.TemplateFlightId, dto.BasePrice, dto.DurationDays);
+            await db.SaveChangesAsync();
+        }
+
         dto.UpdateEntity(trip);
+
+        if (dto.Status == TripStatus.Available && !await HasPublishTemplatesAsync(id))
+        {
+            throw new InvalidOperationException(
+                "A trip can only be set to Available after linking at least one hotel and one flight template.");
+        }
+
         await db.SaveChangesAsync();
         return await GetByIdAsync(trip.Id);
     }
@@ -89,6 +146,71 @@ public class TripRepository(AppDbContext db) : ITripRepository
             .Where(c => !string.IsNullOrWhiteSpace(c.ClaimValue))
             .GroupBy(c => c.UserId)
             .ToDictionary(g => g.Key, g => g.First().ClaimValue!);
+    }
+
+    private async Task<bool> HasPublishTemplatesAsync(int tripId)
+    {
+        var hasHotelTemplate = await db.HotelBookings.AnyAsync(h => h.TripId == tripId && h.TripBookingId == null);
+        if (!hasHotelTemplate) return false;
+
+        var hasFlightTemplate = await db.FlightBookings.AnyAsync(f => f.TripId == tripId && f.TripBookingId == null);
+        return hasFlightTemplate;
+    }
+
+    private async Task EnsureValidTemplateReferencesAsync(int hotelId, int flightId)
+    {
+        if (hotelId < 1 || flightId < 1)
+            throw new InvalidOperationException("Select a hotel and a flight from the catalog.");
+
+        if (!await db.Hotels.AsNoTracking().AnyAsync(h => h.Id == hotelId))
+            throw new InvalidOperationException("Selected hotel was not found.");
+
+        if (!await db.Flights.AsNoTracking().AnyAsync(f => f.Id == flightId))
+            throw new InvalidOperationException("Selected flight was not found.");
+    }
+
+    /// <summary>Package template rows (TripBookingId null), aligned with <see cref="Data.TripSeeder"/> heuristics.</summary>
+    private void AddDefaultTemplateBookings(
+        int tripId,
+        int hotelId,
+        int flightId,
+        decimal basePrice,
+        int durationDays)
+    {
+        var checkIn = DateOnly.FromDateTime(DateTime.UtcNow.Date.AddDays(14));
+        var checkOut = checkIn.AddDays(durationDays);
+        var nightly = Math.Round(
+            Math.Max(120m, basePrice / Math.Max(1, durationDays) * 0.35m),
+            2,
+            MidpointRounding.AwayFromZero);
+
+        db.HotelBookings.Add(new HotelBooking
+        {
+            TripId = tripId,
+            HotelId = hotelId,
+            RoomType = "Standard Double",
+            Guests = 2,
+            NumberOfRooms = 1,
+            CheckInDate = checkIn,
+            CheckOutDate = checkOut,
+            PricePerNight = nightly,
+            TotalPrice = nightly * durationDays,
+            Status = BookingStatus.Planned,
+            ConfirmationNumber = null,
+            TripBookingId = null
+        });
+
+        db.FlightBookings.Add(new FlightBooking
+        {
+            TripId = tripId,
+            FlightId = flightId,
+            CabinClass = "Economy",
+            Passengers = 2,
+            Price = Math.Round(Math.Max(180m, basePrice * 0.45m), 2, MidpointRounding.AwayFromZero),
+            Status = BookingStatus.Planned,
+            ConfirmationNumber = null,
+            TripBookingId = null
+        });
     }
 
     private static TripDto MapToDto(Models.Trip t, IReadOnlyDictionary<string, string> displayNames) =>

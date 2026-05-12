@@ -24,4 +24,10 @@ public class UpdateTripDto
     public int DurationDays    { get; set; }
 
     public TripStatus Status   { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Select a hotel from the catalog.")]
+    public int TemplateHotelId { get; set; }
+
+    [Range(1, int.MaxValue, ErrorMessage = "Select a flight from the catalog.")]
+    public int TemplateFlightId { get; set; }
 }
