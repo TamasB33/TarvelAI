@@ -420,4 +420,384 @@ public sealed class TripBookingUnifiedTests
         Assert.Equal(TripBookingOperationResult.Success, await repo.UnbookTripAsync(tripId, "guest-1"));
         Assert.False(await db.TripBookings.AnyAsync(x => x.UserId == "guest-1"));
     }
+
+    [Fact]
+    public async Task Create_without_template_hotel_and_flight_ids_throws()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:;Cache=Shared");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new AppDbContext(options);
+        await connection.OpenAsync();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.Add(NewUser("creator", "creator@x.com"));
+        db.Hotels.Add(new Hotel { Name = "H", Address = "a", City = "c", Country = "c", Rating = 4 });
+        db.Flights.Add(new Flight
+        {
+            FlightNumber = "X1",
+            Airline = "A",
+            OriginAirport = "AAA",
+            DestinationAirport = "BBB",
+            DepartureTime = DateTime.UtcNow,
+            ArrivalTime = DateTime.UtcNow.AddHours(1)
+        });
+        await db.SaveChangesAsync();
+
+        var repo = new TripRepository(db);
+        var dto = new CreateTripDto
+        {
+            Name = "Needs templates",
+            Destination = "Paris, France",
+            BasePrice = 100,
+            DurationDays = 3,
+            Status = TripStatus.Planning,
+            CreatedBy = "creator",
+            TemplateHotelId = 0,
+            TemplateFlightId = 0
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.CreateAsync(dto));
+    }
+
+    [Fact]
+    public async Task Create_Available_with_valid_template_references_inserts_templates()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:;Cache=Shared");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new AppDbContext(options);
+        await connection.OpenAsync();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.Add(NewUser("creator", "creator@x.com"));
+        db.Hotels.Add(new Hotel { Name = "H", Address = "a", City = "c", Country = "c", Rating = 4 });
+        db.Flights.Add(new Flight
+        {
+            FlightNumber = "X1",
+            Airline = "A",
+            OriginAirport = "AAA",
+            DestinationAirport = "BBB",
+            DepartureTime = DateTime.UtcNow,
+            ArrivalTime = DateTime.UtcNow.AddHours(1)
+        });
+        await db.SaveChangesAsync();
+        var hotelId = db.Hotels.Single().Id;
+        var flightId = db.Flights.Single().Id;
+
+        var repo = new TripRepository(db);
+        var dto = new CreateTripDto
+        {
+            Name = "Published package",
+            Destination = "Paris, France",
+            BasePrice = 1000,
+            DurationDays = 5,
+            Status = TripStatus.Available,
+            CreatedBy = "creator",
+            TemplateHotelId = hotelId,
+            TemplateFlightId = flightId
+        };
+
+        var created = await repo.CreateAsync(dto);
+        Assert.Equal(TripStatus.Available, created.Status);
+        Assert.True(await db.HotelBookings.AnyAsync(h => h.TripId == created.Id && h.TripBookingId == null));
+        Assert.True(await db.FlightBookings.AnyAsync(f => f.TripId == created.Id && f.TripBookingId == null));
+    }
+
+    [Fact]
+    public async Task Update_to_Available_without_template_ids_throws()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:;Cache=Shared");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new AppDbContext(options);
+        await connection.OpenAsync();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.Add(NewUser("creator", "creator@x.com"));
+        db.Hotels.Add(new Hotel { Name = "H", Address = "a", City = "c", Country = "c", Rating = 4 });
+        db.Flights.Add(new Flight
+        {
+            FlightNumber = "X1",
+            Airline = "A",
+            OriginAirport = "AAA",
+            DestinationAirport = "BBB",
+            DepartureTime = DateTime.UtcNow,
+            ArrivalTime = DateTime.UtcNow.AddHours(1)
+        });
+        db.Trips.Add(new Trip
+        {
+            Name = "Planning draft",
+            Destination = "Rome, Italy",
+            BasePrice = 100,
+            DurationDays = 3,
+            Status = TripStatus.Planning,
+            CreatedBy = "creator"
+        });
+        await db.SaveChangesAsync();
+        var tripId = db.Trips.Single().Id;
+
+        var repo = new TripRepository(db);
+        var dto = new UpdateTripDto
+        {
+            Name = "Planning draft",
+            Destination = "Rome, Italy",
+            Description = "",
+            ImageUrl = "",
+            BasePrice = 100,
+            DurationDays = 3,
+            Status = TripStatus.Available,
+            TemplateHotelId = 0,
+            TemplateFlightId = 0
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(tripId, dto));
+    }
+
+    [Fact]
+    public async Task Update_to_Available_with_linked_templates_succeeds()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:;Cache=Shared");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new AppDbContext(options);
+        await connection.OpenAsync();
+        await db.Database.EnsureCreatedAsync();
+
+        db.Users.Add(NewUser("creator", "creator@x.com"));
+        db.Hotels.Add(new Hotel
+        {
+            Name = "H",
+            Address = "a",
+            City = "Rome",
+            Country = "Italy",
+            Rating = 4
+        });
+        db.Flights.Add(new Flight
+        {
+            FlightNumber = "FN2",
+            Airline = "A",
+            OriginAirport = "BUD",
+            DestinationAirport = "FCO",
+            DepartureTime = DateTime.UtcNow.AddDays(10),
+            ArrivalTime = DateTime.UtcNow.AddDays(10).AddHours(2)
+        });
+        await db.SaveChangesAsync();
+
+        var hotelId = db.Hotels.Single().Id;
+        var flightId = db.Flights.Single().Id;
+
+        db.Trips.Add(new Trip
+        {
+            Name = "Planning draft",
+            Destination = "Rome, Italy",
+            BasePrice = 120,
+            DurationDays = 4,
+            Status = TripStatus.Planning,
+            CreatedBy = "creator"
+        });
+        await db.SaveChangesAsync();
+        var tripId = db.Trips.Single().Id;
+
+        db.HotelBookings.Add(new HotelBooking
+        {
+            TripId = tripId,
+            HotelId = hotelId,
+            RoomType = "Std",
+            CheckInDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)),
+            CheckOutDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(13)),
+            PricePerNight = 50,
+            ConfirmationNumber = "TPL-H2"
+        });
+        db.FlightBookings.Add(new FlightBooking
+        {
+            TripId = tripId,
+            FlightId = flightId,
+            CabinClass = "Eco",
+            Price = 200,
+            ConfirmationNumber = "TPL-F2"
+        });
+        await db.SaveChangesAsync();
+
+        var repo = new TripRepository(db);
+        var dto = new UpdateTripDto
+        {
+            Name = "Planning draft",
+            Destination = "Rome, Italy",
+            Description = "",
+            ImageUrl = "",
+            BasePrice = 120,
+            DurationDays = 4,
+            Status = TripStatus.Available,
+            TemplateHotelId = hotelId,
+            TemplateFlightId = flightId
+        };
+
+        var updated = await repo.UpdateAsync(tripId, dto);
+        Assert.NotNull(updated);
+        Assert.Equal(TripStatus.Available, updated!.Status);
+    }
+
+    [Fact]
+    public async Task Update_changes_template_hotel_when_no_bookings_replaces_row()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:;Cache=Shared");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new AppDbContext(options);
+        await connection.OpenAsync();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.Add(NewUser("creator", "creator@x.com"));
+        db.Hotels.Add(new Hotel { Name = "H1", Address = "a", City = "c", Country = "c", Rating = 4 });
+        db.Hotels.Add(new Hotel { Name = "H2", Address = "b", City = "d", Country = "c", Rating = 4 });
+        db.Flights.Add(new Flight
+        {
+            FlightNumber = "F1",
+            Airline = "A",
+            OriginAirport = "AAA",
+            DestinationAirport = "BBB",
+            DepartureTime = DateTime.UtcNow,
+            ArrivalTime = DateTime.UtcNow.AddHours(1)
+        });
+        await db.SaveChangesAsync();
+        var hotel1 = await db.Hotels.OrderBy(h => h.Id).FirstAsync();
+        var hotel2 = await db.Hotels.OrderByDescending(h => h.Id).FirstAsync();
+        var flightId = db.Flights.Single().Id;
+
+        db.Trips.Add(new Trip
+        {
+            Name = "T",
+            Destination = "D",
+            BasePrice = 200,
+            DurationDays = 2,
+            Status = TripStatus.Planning,
+            CreatedBy = "creator"
+        });
+        await db.SaveChangesAsync();
+        var tripId = db.Trips.Single().Id;
+        db.HotelBookings.Add(new HotelBooking
+        {
+            TripId = tripId,
+            HotelId = hotel1.Id,
+            RoomType = "Std",
+            CheckInDate = new DateOnly(2026, 6, 1),
+            CheckOutDate = new DateOnly(2026, 6, 3),
+            PricePerNight = 40,
+            TotalPrice = 80
+        });
+        db.FlightBookings.Add(new FlightBooking
+        {
+            TripId = tripId,
+            FlightId = flightId,
+            CabinClass = "Eco",
+            Price = 100
+        });
+        await db.SaveChangesAsync();
+        var oldHotelBookingId = (await db.HotelBookings.SingleAsync(h => h.TripId == tripId)).Id;
+
+        var repo = new TripRepository(db);
+        var dto = new UpdateTripDto
+        {
+            Name = "T",
+            Destination = "D",
+            Description = "",
+            ImageUrl = "",
+            BasePrice = 200,
+            DurationDays = 2,
+            Status = TripStatus.Planning,
+            TemplateHotelId = hotel2.Id,
+            TemplateFlightId = flightId
+        };
+
+        await repo.UpdateAsync(tripId, dto);
+        var newTemplate = await db.HotelBookings.SingleAsync(h => h.TripId == tripId && h.TripBookingId == null);
+        Assert.Equal(hotel2.Id, newTemplate.HotelId);
+        Assert.NotEqual(oldHotelBookingId, newTemplate.Id);
+    }
+
+    [Fact]
+    public async Task Update_changes_template_hotel_when_bookings_exist_throws()
+    {
+        await using var connection = new SqliteConnection("DataSource=:memory:;Cache=Shared");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .Options;
+
+        await using var db = new AppDbContext(options);
+        await connection.OpenAsync();
+        await db.Database.EnsureCreatedAsync();
+        db.Users.Add(NewUser("creator", "creator@x.com"));
+        db.Users.Add(NewUser("guest", "guest@x.com"));
+        db.Hotels.Add(new Hotel { Name = "H1", Address = "a", City = "c", Country = "c", Rating = 4 });
+        db.Hotels.Add(new Hotel { Name = "H2", Address = "b", City = "d", Country = "c", Rating = 4 });
+        db.Flights.Add(new Flight
+        {
+            FlightNumber = "F1",
+            Airline = "A",
+            OriginAirport = "AAA",
+            DestinationAirport = "BBB",
+            DepartureTime = DateTime.UtcNow,
+            ArrivalTime = DateTime.UtcNow.AddHours(1)
+        });
+        await db.SaveChangesAsync();
+        var hotel1 = await db.Hotels.OrderBy(h => h.Id).FirstAsync();
+        var hotel2 = await db.Hotels.OrderByDescending(h => h.Id).FirstAsync();
+        var flightId = db.Flights.Single().Id;
+
+        db.Trips.Add(new Trip
+        {
+            Name = "T",
+            Destination = "D",
+            BasePrice = 200,
+            DurationDays = 2,
+            Status = TripStatus.Available,
+            CreatedBy = "creator"
+        });
+        await db.SaveChangesAsync();
+        var tripId = db.Trips.Single().Id;
+        db.HotelBookings.Add(new HotelBooking
+        {
+            TripId = tripId,
+            HotelId = hotel1.Id,
+            RoomType = "Std",
+            CheckInDate = new DateOnly(2026, 6, 1),
+            CheckOutDate = new DateOnly(2026, 6, 3),
+            PricePerNight = 40,
+            TotalPrice = 80
+        });
+        db.FlightBookings.Add(new FlightBooking
+        {
+            TripId = tripId,
+            FlightId = flightId,
+            CabinClass = "Eco",
+            Price = 100
+        });
+        await db.SaveChangesAsync();
+
+        db.TripBookings.Add(new TripBooking { TripId = tripId, UserId = "guest", BookedAtUtc = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var repo = new TripRepository(db);
+        var dto = new UpdateTripDto
+        {
+            Name = "T",
+            Destination = "D",
+            Description = "",
+            ImageUrl = "",
+            BasePrice = 200,
+            DurationDays = 2,
+            Status = TripStatus.Available,
+            TemplateHotelId = hotel2.Id,
+            TemplateFlightId = flightId
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => repo.UpdateAsync(tripId, dto));
+    }
 }

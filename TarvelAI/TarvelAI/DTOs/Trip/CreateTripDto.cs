@@ -25,6 +25,14 @@ public class CreateTripDto
 
     public TripStatus Status   { get; set; } = TripStatus.Planning;
 
+    /// <summary>Catalog hotel used for the package template (<see cref="Models.HotelBooking.TripBookingId"/> null).</summary>
+    [Range(1, int.MaxValue, ErrorMessage = "Select a hotel from the catalog.")]
+    public int TemplateHotelId { get; set; }
+
+    /// <summary>Catalog flight used for the package template (<see cref="Models.FlightBooking.TripBookingId"/> null).</summary>
+    [Range(1, int.MaxValue, ErrorMessage = "Select a flight from the catalog.")]
+    public int TemplateFlightId { get; set; }
+
     [Required]
     public required string CreatedBy  { get; set; }
 }

@@ -60,11 +60,16 @@ public static class TripSeeder
 
         var hotels = new List<Hotel>
         {
-            new() { Name = "Hotel Le Meurice",            Address = "228 Rue de Rivoli",      City = "Paris",    Country = "France",    Rating = 4.9, ImageUrl = "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800" },
-            new() { Name = "Park Hyatt Tokyo",             Address = "3-7-1-2 Nishi Shinjuku", City = "Tokyo",    Country = "Japan",     Rating = 4.8, ImageUrl = "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=800" },
-            new() { Name = "The Plaza Hotel",              Address = "768 5th Ave",             City = "New York", Country = "USA",       Rating = 4.7, ImageUrl = "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800" },
-            new() { Name = "Four Seasons Bali at Sayan",   Address = "Sayan, Ubud",             City = "Bali",     Country = "Indonesia", Rating = 4.9, ImageUrl = "https://images.unsplash.com/photo-1582719508461-905c673771fd?w=800" },
-            new() { Name = "Hotel Hassler Roma",           Address = "Trinita dei Monti 6",     City = "Rome",     Country = "Italy",     Rating = 4.8, ImageUrl = "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800" },
+            new() { Name = "Hotel Le Meurice",         Address = "228 Rue de Rivoli",      City = "Paris",      Country = "France",         Rating = 4.9, ImageUrl = "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=800" },
+            new() { Name = "Hotel Hassler Roma",       Address = "Trinita dei Monti 6",    City = "Rome",       Country = "Italy",          Rating = 4.8, ImageUrl = "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800" },
+            new() { Name = "The Grand Budapest",       Address = "Castle District",        City = "Budapest",   Country = "Hungary",        Rating = 4.7, ImageUrl = "https://images.unsplash.com/photo-1444201983204-c43cbd584d93?w=800" },
+            new() { Name = "Hotel Adlon Berlin",       Address = "Unter den Linden 77",    City = "Berlin",     Country = "Germany",        Rating = 4.7, ImageUrl = "https://images.unsplash.com/photo-1519710164239-da123dc03ef4?w=800" },
+            new() { Name = "The Westin Palace",        Address = "Plaza de las Cortes 7",  City = "Madrid",     Country = "Spain",          Rating = 4.6, ImageUrl = "https://images.unsplash.com/photo-1559599238-308793637427?w=800" },
+            new() { Name = "Hotel Metropole",          Address = "Place de Brouckere 31",  City = "Brussels",   Country = "Belgium",        Rating = 4.5, ImageUrl = "https://images.unsplash.com/photo-1522798514-97ceb8c4f1c8?w=800" },
+            new() { Name = "Porto Riverside Suites",   Address = "Ribeira 12",             City = "Porto",      Country = "Portugal",       Rating = 4.6, ImageUrl = "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800" },
+            new() { Name = "Nordic Harbor Hotel",      Address = "Skeppsbron 18",          City = "Stockholm",  Country = "Sweden",         Rating = 4.6, ImageUrl = "https://images.unsplash.com/photo-1501117716987-c8e1ecb210c2?w=800" },
+            new() { Name = "Alpine Crown Zurich",      Address = "Bahnhofstrasse 40",      City = "Zurich",     Country = "Switzerland",    Rating = 4.8, ImageUrl = "https://images.unsplash.com/photo-1470246973918-29a93221c455?w=800" },
+            new() { Name = "Canal View Amsterdam",     Address = "Prinsengracht 104",      City = "Amsterdam",  Country = "Netherlands",    Rating = 4.7, ImageUrl = "https://images.unsplash.com/photo-1512470876302-972faa2aa9a4?w=800" }
         };
 
         await db.Hotels.AddRangeAsync(hotels);
@@ -79,11 +84,16 @@ public static class TripSeeder
 
         var flights = new List<Flight>
         {
-            new() { FlightNumber = "BA304", Airline = "British Airways",   OriginAirport = "LHR", DestinationAirport = "CDG", DepartureTime = new DateTime(2025,  6,  1,  8,  0, 0, DateTimeKind.Utc), ArrivalTime = new DateTime(2025,  6,  1, 10, 30, 0, DateTimeKind.Utc) },
-            new() { FlightNumber = "JL044", Airline = "Japan Airlines",    OriginAirport = "LHR", DestinationAirport = "NRT", DepartureTime = new DateTime(2025,  7, 10, 11,  0, 0, DateTimeKind.Utc), ArrivalTime = new DateTime(2025,  7, 11,  8,  0, 0, DateTimeKind.Utc) },
-            new() { FlightNumber = "AA100", Airline = "American Airlines", OriginAirport = "LHR", DestinationAirport = "JFK", DepartureTime = new DateTime(2025,  8,  5,  9,  0, 0, DateTimeKind.Utc), ArrivalTime = new DateTime(2025,  8,  5, 12,  0, 0, DateTimeKind.Utc) },
-            new() { FlightNumber = "GA880", Airline = "Garuda Indonesia",  OriginAirport = "LHR", DestinationAirport = "DPS", DepartureTime = new DateTime(2025,  9,  1, 14,  0, 0, DateTimeKind.Utc), ArrivalTime = new DateTime(2025,  9,  2, 10,  0, 0, DateTimeKind.Utc) },
-            new() { FlightNumber = "AZ202", Airline = "ITA Airways",       OriginAirport = "LHR", DestinationAirport = "FCO", DepartureTime = new DateTime(2025, 10,  3,  7,  0, 0, DateTimeKind.Utc), ArrivalTime = new DateTime(2025, 10,  3, 10, 30, 0, DateTimeKind.Utc) },
+            new() { FlightNumber = "BA304", Airline = "British Airways", OriginAirport = "LHR", DestinationAirport = "CDG", DepartureTime = DateTime.UtcNow.AddDays(7),  ArrivalTime = DateTime.UtcNow.AddDays(7).AddHours(2) },
+            new() { FlightNumber = "AZ202", Airline = "ITA Airways",     OriginAirport = "LHR", DestinationAirport = "FCO", DepartureTime = DateTime.UtcNow.AddDays(9),  ArrivalTime = DateTime.UtcNow.AddDays(9).AddHours(2) },
+            new() { FlightNumber = "LH811", Airline = "Lufthansa",       OriginAirport = "LHR", DestinationAirport = "BER", DepartureTime = DateTime.UtcNow.AddDays(11), ArrivalTime = DateTime.UtcNow.AddDays(11).AddHours(2) },
+            new() { FlightNumber = "IB371", Airline = "Iberia",          OriginAirport = "LHR", DestinationAirport = "MAD", DepartureTime = DateTime.UtcNow.AddDays(13), ArrivalTime = DateTime.UtcNow.AddDays(13).AddHours(2) },
+            new() { FlightNumber = "TP135", Airline = "TAP Air Portugal",OriginAirport = "LHR", DestinationAirport = "OPO", DepartureTime = DateTime.UtcNow.AddDays(15), ArrivalTime = DateTime.UtcNow.AddDays(15).AddHours(2) },
+            new() { FlightNumber = "SK528", Airline = "SAS",             OriginAirport = "LHR", DestinationAirport = "ARN", DepartureTime = DateTime.UtcNow.AddDays(17), ArrivalTime = DateTime.UtcNow.AddDays(17).AddHours(2) },
+            new() { FlightNumber = "KL100", Airline = "KLM",             OriginAirport = "LHR", DestinationAirport = "AMS", DepartureTime = DateTime.UtcNow.AddDays(19), ArrivalTime = DateTime.UtcNow.AddDays(19).AddHours(2) },
+            new() { FlightNumber = "LX319", Airline = "Swiss",           OriginAirport = "LHR", DestinationAirport = "ZRH", DepartureTime = DateTime.UtcNow.AddDays(21), ArrivalTime = DateTime.UtcNow.AddDays(21).AddHours(2) },
+            new() { FlightNumber = "LO286", Airline = "LOT",             OriginAirport = "LHR", DestinationAirport = "WAW", DepartureTime = DateTime.UtcNow.AddDays(23), ArrivalTime = DateTime.UtcNow.AddDays(23).AddHours(2) },
+            new() { FlightNumber = "OS456", Airline = "Austrian",        OriginAirport = "LHR", DestinationAirport = "VIE", DepartureTime = DateTime.UtcNow.AddDays(25), ArrivalTime = DateTime.UtcNow.AddDays(25).AddHours(2) }
         };
 
         await db.Flights.AddRangeAsync(flights);
@@ -98,92 +108,113 @@ public static class TripSeeder
     {
         if (await db.Trips.AnyAsync()) return;
 
-        var trips = new List<Trip>
+        var now = DateTime.UtcNow;
+        var tripSeeds = new (string Name, string Destination, string Description, string ImageUrl, decimal Price, int DurationDays, TripStatus Status, string CreatedBy)[]
         {
-            new()
-            {
-                Name         = "Paris Getaway",
-                Destination  = "Paris, France",
-                Description  = "A romantic escape to the city of lights. Explore the Eiffel Tower, Louvre and charming Montmartre.",
-                ImageUrl     = "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800",
-                BasePrice    = 1200m, DurationDays = 5, Status = TripStatus.Available,
-                CreatedBy = alice.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                Name         = "Tokyo Explorer",
-                Destination  = "Tokyo, Japan",
-                Description  = "Discover the perfect blend of ancient temples and futuristic technology in Japan's vibrant capital.",
-                ImageUrl     = "https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=800",
-                BasePrice    = 2400m, DurationDays = 10, Status = TripStatus.Available,
-                CreatedBy = bob.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                Name         = "New York City Break",
-                Destination  = "New York, USA",
-                Description  = "Experience the energy of Manhattan - Times Square, Central Park, and world-class dining.",
-                ImageUrl     = "https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=800",
-                BasePrice    = 1800m, DurationDays = 7, Status = TripStatus.Available,
-                CreatedBy = alice.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                Name         = "Bali Retreat",
-                Destination  = "Bali, Indonesia",
-                Description  = "Relax on stunning beaches, visit sacred temples and enjoy the lush rice terraces of Ubud.",
-                ImageUrl     = "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=800",
-                BasePrice    = 950m, DurationDays = 8, Status = TripStatus.Available,
-                CreatedBy = admin.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                Name         = "Rome and Amalfi Coast",
-                Destination  = "Rome, Italy",
-                Description  = "Walk through ancient history in Rome then unwind along the breathtaking Amalfi coastline.",
-                ImageUrl     = "https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800",
-                BasePrice    = 1500m, DurationDays = 9, Status = TripStatus.Available,
-                CreatedBy = bob.Id, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-            },
+            ("Paris Getaway", "Paris, France", "A romantic escape to the city of lights.", "https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=800", 1200m, 5, TripStatus.Available, alice.Id),
+            ("Rome and Amalfi Coast", "Rome, Italy", "Historic city walks and coastal relaxation.", "https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=800", 1500m, 9, TripStatus.Available, bob.Id),
+            ("Budapest City Lights", "Budapest, Hungary", "Thermal baths, Danube views, and ruin bars.", "https://images.unsplash.com/photo-1565426873117-0de6d2f5c12e?w=800", 980m, 4, TripStatus.Available, alice.Id),
+            ("Berlin Culture Week", "Berlin, Germany", "Museums, neighborhoods, and nightlife.", "https://images.unsplash.com/photo-1560969184-10fe8719e047?w=800", 1100m, 6, TripStatus.Available, admin.Id),
+            ("Madrid Tapas Escape", "Madrid, Spain", "Food-focused city break with art museums.", "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=800", 1050m, 5, TripStatus.Available, bob.Id),
+            ("Porto Riverside", "Porto, Portugal", "Riverside strolls, wine cellars, and coastal day trips.", "https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800", 990m, 5, TripStatus.Available, alice.Id),
+            ("Stockholm Archipelago", "Stockholm, Sweden", "Nordic design and island hopping.", "https://images.unsplash.com/photo-1509356843151-3e7d96241e11?w=800", 1450m, 7, TripStatus.Available, bob.Id),
+            ("Zurich Alpine Break", "Zurich, Switzerland", "City comfort with nearby alpine routes.", "https://images.unsplash.com/photo-1521292270410-a8c4d716d518?w=800", 1800m, 6, TripStatus.Available, alice.Id),
+            ("Amsterdam Canals", "Amsterdam, Netherlands", "Canals, museums, and bike-friendly neighborhoods.", "https://images.unsplash.com/photo-1534351590666-13e3e96b5017?w=800", 1300m, 5, TripStatus.Available, bob.Id),
+            ("Vienna Classical Tour", "Vienna, Austria", "Imperial architecture and classical music evenings.", "https://images.unsplash.com/photo-1516550893923-42d28e5677af?w=800", 1350m, 6, TripStatus.Available, admin.Id),
+            ("Brussels Weekend", "Brussels, Belgium", "Historic squares, chocolate, and modern art.", "https://images.unsplash.com/photo-1559127452-5a0f4f4d2f6f?w=800", 970m, 4, TripStatus.Available, alice.Id),
+            ("Prague Old Town", "Prague, Czech Republic", "Castle district and riverside evenings.", "https://images.unsplash.com/photo-1541849546-216549ae216d?w=800", 1020m, 5, TripStatus.Available, bob.Id),
+            ("Athens Heritage", "Athens, Greece", "Acropolis, local cuisine, and seaside sunsets.", "https://images.unsplash.com/photo-1555993539-1732b0258235?w=800", 1180m, 6, TripStatus.Confirmed, alice.Id),
+            ("Dublin Discovery", "Dublin, Ireland", "Historic pubs, museums, and nearby cliffs.", "https://images.unsplash.com/photo-1520637836862-4d197d17c57a?w=800", 1250m, 5, TripStatus.Confirmed, bob.Id),
+            ("Krakow Heritage", "Krakow, Poland", "Old town charm and cultural landmarks.", "https://images.unsplash.com/photo-1580327344181-c1163234e5a0?w=800", 980m, 5, TripStatus.Confirmed, admin.Id),
+            ("Copenhagen Design Trip", "Copenhagen, Denmark", "Scandinavian design and culinary scene.", "https://images.unsplash.com/photo-1513622470522-26c3c8a854bc?w=800", 1420m, 5, TripStatus.Completed, alice.Id),
+            ("Helsinki Calm Retreat", "Helsinki, Finland", "Saunas, sea views, and modern Nordic architecture.", "https://images.unsplash.com/photo-1467269204594-9661b134dd2b?w=800", 1380m, 5, TripStatus.Completed, bob.Id),
+            ("Dubrovnik Coastline", "Dubrovnik, Croatia", "Old town walls and Adriatic coastline vistas.", "https://images.unsplash.com/photo-1505765050516-f72dcac9c60e?w=800", 1600m, 6, TripStatus.Cancelled, admin.Id)
         };
+
+        var trips = tripSeeds.Select(seed => new Trip
+        {
+            Name = seed.Name,
+            Destination = seed.Destination,
+            Description = seed.Description,
+            ImageUrl = seed.ImageUrl,
+            BasePrice = seed.Price,
+            DurationDays = seed.DurationDays,
+            Status = seed.Status,
+            CreatedBy = seed.CreatedBy,
+            CreatedAt = now,
+            UpdatedAt = now
+        }).ToList();
 
         await db.Trips.AddRangeAsync(trips);
         await db.SaveChangesAsync();
 
-        // Hotel bookings - each trip has a matching hotel at the destination
-        var hotelBookings = new List<HotelBooking>
+        var hotelBookings = new List<HotelBooking>();
+        var flightBookings = new List<FlightBooking>();
+        for (var i = 0; i < trips.Count; i++)
         {
-            new() { TripId = trips[0].Id, HotelId = hotels[0].Id, RoomType = "Deluxe Double",    Guests = 2, NumberOfRooms = 1, CheckInDate = new DateOnly(2025,  6,  1), CheckOutDate = new DateOnly(2025,  6,  6), PricePerNight = 450m, TotalPrice = 2250m, Status = BookingStatus.Booked,  ConfirmationNumber = "HTL-1001" },
-            new() { TripId = trips[1].Id, HotelId = hotels[1].Id, RoomType = "Park Suite",        Guests = 1, NumberOfRooms = 1, CheckInDate = new DateOnly(2025,  7, 11), CheckOutDate = new DateOnly(2025,  7, 21), PricePerNight = 620m, TotalPrice = 6200m, Status = BookingStatus.Planned, ConfirmationNumber = null },
-            new() { TripId = trips[2].Id, HotelId = hotels[2].Id, RoomType = "Central Park View", Guests = 2, NumberOfRooms = 1, CheckInDate = new DateOnly(2025,  8,  5), CheckOutDate = new DateOnly(2025,  8, 12), PricePerNight = 800m, TotalPrice = 5600m, Status = BookingStatus.Planned, ConfirmationNumber = null },
-            new() { TripId = trips[3].Id, HotelId = hotels[3].Id, RoomType = "River Suite",       Guests = 2, NumberOfRooms = 1, CheckInDate = new DateOnly(2025,  9,  2), CheckOutDate = new DateOnly(2025,  9, 10), PricePerNight = 550m, TotalPrice = 4400m, Status = BookingStatus.Booked,  ConfirmationNumber = "HTL-4002" },
-            new() { TripId = trips[4].Id, HotelId = hotels[4].Id, RoomType = "Classic Room",      Guests = 2, NumberOfRooms = 1, CheckInDate = new DateOnly(2025, 10,  3), CheckOutDate = new DateOnly(2025, 10, 12), PricePerNight = 380m, TotalPrice = 3420m, Status = BookingStatus.Planned, ConfirmationNumber = null },
-        };
+            var trip = trips[i];
+            var hotel = hotels[i % hotels.Count];
+            var flight = flights[i % flights.Count];
+
+            var checkIn = DateOnly.FromDateTime(now.Date.AddDays(14 + (i * 4)));
+            var checkOut = checkIn.AddDays(trip.DurationDays);
+            var nightly = Math.Round(Math.Max(120m, trip.BasePrice / Math.Max(1, trip.DurationDays) * 0.35m), 2);
+
+            hotelBookings.Add(new HotelBooking
+            {
+                TripId = trip.Id,
+                HotelId = hotel.Id,
+                RoomType = "Standard Double",
+                Guests = 2,
+                NumberOfRooms = 1,
+                CheckInDate = checkIn,
+                CheckOutDate = checkOut,
+                PricePerNight = nightly,
+                TotalPrice = nightly * trip.DurationDays,
+                Status = BookingStatus.Planned,
+                ConfirmationNumber = null
+            });
+
+            flightBookings.Add(new FlightBooking
+            {
+                TripId = trip.Id,
+                FlightId = flight.Id,
+                CabinClass = "Economy",
+                Passengers = 2,
+                Price = Math.Round(Math.Max(180m, trip.BasePrice * 0.45m), 2),
+                Status = BookingStatus.Planned,
+                ConfirmationNumber = null
+            });
+        }
 
         await db.HotelBookings.AddRangeAsync(hotelBookings);
-
-        // Flight bookings - each trip has a matching outbound flight
-        var flightBookings = new List<FlightBooking>
-        {
-            new() { TripId = trips[0].Id, FlightId = flights[0].Id, CabinClass = "Business", Passengers = 2, Price =  960m, ConfirmationNumber = "FCF-3001", Status = BookingStatus.Booked  },
-            new() { TripId = trips[1].Id, FlightId = flights[1].Id, CabinClass = "Economy",  Passengers = 1, Price =  580m, ConfirmationNumber = null,       Status = BookingStatus.Planned },
-            new() { TripId = trips[2].Id, FlightId = flights[2].Id, CabinClass = "Economy",  Passengers = 2, Price =  740m, ConfirmationNumber = null,       Status = BookingStatus.Planned },
-            new() { TripId = trips[3].Id, FlightId = flights[3].Id, CabinClass = "Business", Passengers = 2, Price = 2400m, ConfirmationNumber = "FCF-4002", Status = BookingStatus.Booked  },
-            new() { TripId = trips[4].Id, FlightId = flights[4].Id, CabinClass = "Economy",  Passengers = 2, Price =  420m, ConfirmationNumber = null,       Status = BookingStatus.Planned },
-        };
-
         await db.FlightBookings.AddRangeAsync(flightBookings);
 
         if (!await db.TripBookings.AnyAsync())
         {
-            var tripBookings = new List<TripBooking>
+            var aliceTripIndexes = new[] { 0, 1, 2, 3, 4, 5 };
+            var bobTripIndexes = new[] { 4, 5, 6, 7, 8, 9 };
+
+            var tripBookings = new List<TripBooking>();
+            for (var i = 0; i < aliceTripIndexes.Length; i++)
             {
-                new() { TripId = trips[0].Id, UserId = alice.Id, BookedAtUtc = DateTime.UtcNow.AddDays(-14) },
-                new() { TripId = trips[1].Id, UserId = bob.Id,   BookedAtUtc = DateTime.UtcNow.AddDays(-10) },
-                new() { TripId = trips[2].Id, UserId = alice.Id, BookedAtUtc = DateTime.UtcNow.AddDays(-7)  },
-                new() { TripId = trips[3].Id, UserId = admin.Id, BookedAtUtc = DateTime.UtcNow.AddDays(-5)  },
-                new() { TripId = trips[4].Id, UserId = bob.Id,   BookedAtUtc = DateTime.UtcNow.AddDays(-2)  }
-            };
+                tripBookings.Add(new TripBooking
+                {
+                    TripId = trips[aliceTripIndexes[i]].Id,
+                    UserId = alice.Id,
+                    BookedAtUtc = now.AddDays(-(14 - (i * 2)))
+                });
+            }
+
+            for (var i = 0; i < bobTripIndexes.Length; i++)
+            {
+                tripBookings.Add(new TripBooking
+                {
+                    TripId = trips[bobTripIndexes[i]].Id,
+                    UserId = bob.Id,
+                    BookedAtUtc = now.AddDays(-(13 - (i * 2)))
+                });
+            }
 
             await db.TripBookings.AddRangeAsync(tripBookings);
         }
@@ -193,66 +224,36 @@ public static class TripSeeder
 
     private static async Task EnsureMyTripsDemoDataAsync(AppDbContext db, UserManager<IdentityUser> userManager)
     {
-        var trips = await db.Trips.OrderBy(t => t.Id).ToListAsync();
-        if (trips.Count == 0)
-        {
-            return;
-        }
-
-        // Ensure status variety so My Trips shows both ongoing and past sections.
-        // Avoid forcing Planning on trips that already have seeded bookings (would pollute the admin planning queue).
-        var statusTargets = new[]
-        {
-            TripStatus.Confirmed,
-            TripStatus.Confirmed,
-            TripStatus.Completed,
-            TripStatus.Cancelled,
-            TripStatus.Available
-        };
-
-        var hasStatusChanges = false;
-        for (var i = 0; i < trips.Count && i < statusTargets.Length; i++)
-        {
-            if (trips[i].Status == statusTargets[i]
-                && trips[i].AdminHotelConfirmed == false
-                && trips[i].AdminAirlineConfirmed == false)
-            {
-                continue;
-            }
-
-            trips[i].Status = statusTargets[i];
-            trips[i].AdminHotelConfirmed = false;
-            trips[i].AdminAirlineConfirmed = false;
-            trips[i].UpdatedAt = DateTime.UtcNow;
-            hasStatusChanges = true;
-        }
-
-        if (hasStatusChanges)
-        {
-            await db.SaveChangesAsync();
-        }
-
         var users = await userManager.GetUsersInRoleAsync("User");
+        if (users.Count == 0) return;
+
+        var trips = await db.Trips
+            .Where(t => t.Status == TripStatus.Available)
+            .OrderBy(t => t.Id)
+            .Take(12)
+            .ToListAsync();
+
+        if (trips.Count == 0) return;
+
         foreach (var user in users)
         {
-            var hasBookings = await db.TripBookings.AnyAsync(tb => tb.UserId == user.Id);
-            if (hasBookings)
-            {
-                continue;
-            }
+            var bookingCount = await db.TripBookings.CountAsync(tb => tb.UserId == user.Id);
+            if (bookingCount >= 6) continue;
 
-            var demoBookings = new List<TripBooking>();
-            for (var i = 0; i < trips.Count && i < 4; i++)
-            {
-                demoBookings.Add(new TripBooking
-                {
-                    TripId = trips[i].Id,
-                    UserId = user.Id,
-                    BookedAtUtc = DateTime.UtcNow.AddDays(-(i + 1) * 3)
-                });
-            }
+            var existingTripIds = await db.TripBookings
+                .Where(tb => tb.UserId == user.Id)
+                .Select(tb => tb.TripId)
+                .ToListAsync();
 
-            await db.TripBookings.AddRangeAsync(demoBookings);
+            var candidates = trips.Where(t => !existingTripIds.Contains(t.Id)).Take(6 - bookingCount).ToList();
+            var toAdd = candidates.Select((trip, idx) => new TripBooking
+            {
+                TripId = trip.Id,
+                UserId = user.Id,
+                BookedAtUtc = DateTime.UtcNow.AddDays(-((idx + 1) * 2))
+            });
+
+            await db.TripBookings.AddRangeAsync(toAdd);
         }
 
         await db.SaveChangesAsync();

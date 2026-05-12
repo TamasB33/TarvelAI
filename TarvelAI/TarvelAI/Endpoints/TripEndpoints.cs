@@ -94,15 +94,29 @@ public static class TripEndpoints
         // POST /api/trips
         adminGroup.MapPost("/", async (CreateTripDto dto, ITripRepository repo) =>
         {
-            var created = await repo.CreateAsync(dto);
-            return Results.Created($"/api/trips/{created.Id}", created);
+            try
+            {
+                var created = await repo.CreateAsync(dto);
+                return Results.Created($"/api/trips/{created.Id}", created);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { message = ex.Message });
+            }
         });
 
         // PUT /api/trips/{id}
         adminGroup.MapPut("/{id:int}", async (int id, UpdateTripDto dto, ITripRepository repo) =>
         {
-            var updated = await repo.UpdateAsync(id, dto);
-            return updated is null ? Results.NotFound() : Results.Ok(updated);
+            try
+            {
+                var updated = await repo.UpdateAsync(id, dto);
+                return updated is null ? Results.NotFound() : Results.Ok(updated);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { message = ex.Message });
+            }
         });
 
         // DELETE /api/trips/{id}
